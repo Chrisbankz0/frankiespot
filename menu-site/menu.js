@@ -45,6 +45,12 @@ const BUSINESS = {
      Leave it as null to say the fee is agreed in the WhatsApp chat.      */
   deliveryFee: null,
 
+  /* Flat pack/nylon fee — one charge per order, not per dish. It never
+     shows on the site itself; it only appears once the order is sent to
+     WhatsApp, added on top of the food total shown here.
+     Set to 0 (or delete the line) to turn it off entirely.               */
+  packagingFee: 500,
+
   /* Minimum order value before delivery. Set to 0 to turn it off.        */
   minimumOrder: 2000,
 };

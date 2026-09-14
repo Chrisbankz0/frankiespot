@@ -386,6 +386,48 @@ img{ display:block; }
 
 
 /* ---------------------------------------------------------------
+   Custom order box
+   --------------------------------------------------------------- */
+.custom-block{ padding-top:34px; }
+.custom-intro{
+  margin:14px 0 0;
+  font-size:14px; color:var(--muted);
+  max-width:52ch;
+}
+.custom-textarea{
+  width:100%;
+  margin-top:14px;
+  padding:13px 14px;
+  border-radius:var(--r-md);
+  border:1.5px solid var(--hair);
+  background:#fff;
+  font:inherit; font-size:14.5px;
+  color:var(--ink);
+  resize:vertical;
+}
+.custom-textarea:focus-visible{ border-color:var(--pepper); }
+.custom-add-btn{
+  margin-top:10px;
+  padding:12px 20px;
+  border-radius:var(--r-md);
+  background:var(--ink); color:#fff;
+  font-size:14.5px; font-weight:600;
+}
+.custom-add-btn:active{ filter:brightness(1.15); }
+.custom-hint{
+  margin:10px 0 0;
+  font-size:13px; color:var(--pepper); font-weight:500;
+}
+
+/* The custom-order line inside the order sheet */
+.line-custom-text{
+  font-size:13.5px; color:var(--muted);
+  margin-top:4px;
+  white-space:pre-wrap;
+}
+
+
+/* ---------------------------------------------------------------
    Footer
    --------------------------------------------------------------- */
 .pagefoot{

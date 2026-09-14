@@ -19,6 +19,7 @@
  * @property {string}  [instagram]  Handle including the @. Empty string hides it.
  * @property {string}  [orderNotice] Short notice, e.g. lead time.
  * @property {number|null} deliveryFee  Flat fee, or null to agree it in chat.
+ * @property {number}  [packagingFee]  Flat pack/nylon fee per order. WhatsApp-message only, never shown on the page itself.
  * @property {number}  minimumOrder Minimum spend before delivery. 0 turns it off.
  */
 

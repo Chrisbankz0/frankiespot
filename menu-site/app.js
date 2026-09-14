@@ -83,11 +83,22 @@
 
   const cart = new Map();
 
+  /* Free-text order, from the "custom order" box at the end of the menu.
+     Not priced — staff quote it back in the WhatsApp chat — but it still
+     needs to travel through the same send/clear flow as the cart. */
+  let customNote = "";
+
   const subtotal = () =>
     [...cart.values()].reduce((sum, l) => sum + l.unit * l.qty, 0);
 
   const itemCount = () =>
     [...cart.values()].reduce((sum, l) => sum + l.qty, 0);
+
+  /* One flat pack/nylon fee per order — not per dish. It's deliberately
+     left out of subtotal()/refresh() math because it should only ever
+     appear in the WhatsApp message (see buildMessage below), never in
+     the on-page cart totals. */
+  const packagingFee = () => BUSINESS.packagingFee || 0;
 
   function addToCart(key, name, unit, item, qty) {
     qty = qty || 1;
@@ -112,6 +123,8 @@
 
   function clearCart() {
     cart.clear();
+    customNote = "";
+    syncCustomOrderUI();
     refresh();
   }
 
@@ -319,12 +332,12 @@
     const count = itemCount();
     el("barCount").textContent = count;
     el("barTotal").textContent = money(subtotal());
-    bar.classList.toggle("is-visible", count > 0);
+    bar.classList.toggle("is-visible", count > 0 || !!customNote);
 
     controls.forEach((render) => render());
 
     if (sheet.classList.contains("is-open")) {
-      if (cart.size === 0) closeSheet();
+      if (cart.size === 0 && !customNote) closeSheet();
       else renderSheet();
     }
   }
@@ -354,6 +367,34 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && sheet.classList.contains("is-open")) closeSheet();
   });
+
+  /* ------------------------------------------------------------------
+     Custom order box
+     Free text for anything not on the menu. Saved into customNote,
+     which rides along with the cart through the same send/clear flow.
+     ------------------------------------------------------------------ */
+
+  const customText = el("customText");
+  const customAddBtn = el("customAddBtn");
+  const customHint = el("customHint");
+
+  function syncCustomOrderUI() {
+    customText.value = customNote;
+    if (customNote) {
+      customHint.textContent = "Added — it'll be included when you send your order.";
+      customHint.style.display = "";
+      customAddBtn.textContent = "Update";
+    } else {
+      customHint.style.display = "none";
+      customAddBtn.textContent = "Add to order";
+    }
+  }
+
+  customAddBtn.onclick = () => {
+    customNote = customText.value.trim();
+    syncCustomOrderUI();
+    refresh();
+  };
 
   /* ------------------------------------------------------------------
      Dish detail view
@@ -454,7 +495,7 @@
     const lines = el("lines");
     lines.innerHTML = "";
 
-    if (cart.size === 0) {
+    if (cart.size === 0 && !customNote) {
       lines.innerHTML = `<p class="empty">Nothing added yet.</p>`;
     }
 
@@ -491,6 +532,35 @@
       lines.appendChild(row);
     });
 
+    if (customNote) {
+      const row = document.createElement("div");
+      row.className = "line line-custom";
+
+      const body = document.createElement("div");
+      body.className = "line-body";
+      const label = document.createElement("div");
+      label.className = "line-name";
+      label.textContent = "Custom order";
+      const text = document.createElement("div");
+      text.className = "line-custom-text";
+      text.textContent = customNote;
+      body.append(label, text);
+      row.appendChild(body);
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "remove";
+      del.textContent = "Remove";
+      del.setAttribute("aria-label", "Remove your custom order note");
+      del.onclick = () => {
+        customNote = "";
+        syncCustomOrderUI();
+        refresh();
+      };
+      row.appendChild(del);
+      lines.appendChild(row);
+    }
+
     const sub = subtotal();
     const shortfall = (BUSINESS.minimumOrder || 0) - sub;
     const belowMinimum = cart.size > 0 && shortfall > 0;
@@ -499,6 +569,9 @@
       ? `<div class="notice">Add ${money(shortfall)} more to reach the ${money(BUSINESS.minimumOrder)} minimum order.</div>`
       : "";
 
+    /* Packaging is deliberately left out of every row here — it's a flat
+       fee that only ever shows up once the order reaches WhatsApp, see
+       buildMessage() below. */
     const rows = [
       `<div class="trow"><span>Subtotal</span><span>${money(sub)}</span></div>`,
     ];
@@ -511,8 +584,8 @@
     }
     el("totals").innerHTML = rows.join("");
 
-    el("clearBtn").style.visibility = cart.size ? "visible" : "hidden";
-    sendBtn.disabled = cart.size === 0 || belowMinimum;
+    el("clearBtn").style.visibility = (cart.size || customNote) ? "visible" : "hidden";
+    sendBtn.disabled = (cart.size === 0 && !customNote) || belowMinimum;
   }
 
   /* ------------------------------------------------------------------
@@ -523,17 +596,27 @@
 
   function buildMessage() {
     const sub = subtotal();
+    const pack = packagingFee();
     const out = [`*New order — ${BUSINESS.name}*`, ""];
 
     cart.forEach((line) => {
       out.push(`${line.qty}\u00D7 ${line.name} — ${money(line.unit * line.qty)}`);
     });
 
-    out.push("", `Subtotal: ${money(sub)}`);
+    if (customNote) {
+      if (cart.size > 0) out.push("");
+      out.push("Custom order:", customNote);
+    }
+
+    out.push("");
+    if (sub > 0) out.push(`Subtotal: ${money(sub)}`);
+    if (pack > 0) out.push(`Packaging: ${money(pack)}`);
 
     if (BUSINESS.deliveryFee != null) {
       out.push(`Delivery: ${money(BUSINESS.deliveryFee)}`);
-      out.push(`*Total: ${money(sub + BUSINESS.deliveryFee)}*`);
+      out.push(`*Total: ${money(sub + pack + BUSINESS.deliveryFee)}*`);
+    } else {
+      out.push(`*Total: ${money(sub + pack)}*`);
     }
 
     out.push("", "Name:", "Delivery address:", "Preferred time:");
@@ -541,7 +624,7 @@
   }
 
   sendBtn.onclick = () => {
-    if (cart.size === 0) return;
+    if (cart.size === 0 && !customNote) return;
     const url =
       "https://wa.me/" + BUSINESS.whatsapp + "?text=" + encodeURIComponent(buildMessage());
     window.open(url, "_blank", "noopener");
