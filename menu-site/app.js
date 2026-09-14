@@ -529,7 +529,7 @@
       out.push(`*Total: ${money(sub + BUSINESS.deliveryFee)}*`);
     }
 
-    out.push("", "Name:", "Delivery address:", "Preferred time:");
+    out.push("", "Name:", "Delivery address:", "Phone number:", "", "Thanks!");
     return out.join("\n");
   }
 

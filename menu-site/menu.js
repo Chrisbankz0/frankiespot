@@ -32,7 +32,7 @@ const BUSINESS = {
   whatsapp: "2347061446572",
 
   areas: "Lagos",                          // CHECK ME — list the real areas
-  hours: "Monday to Saturday, 9am to 8pm", // CHECK ME — real opening times
+  hours: "Tuesday to Sunday, 9am to 3pm", // CHECK ME — real opening times
   instagram: "",                           // e.g. "@frankiespot", "" hides it
 
   /* The old price list said every plate came with water — the new one
@@ -46,7 +46,7 @@ const BUSINESS = {
   deliveryFee: null,
 
   /* Minimum order value before delivery. Set to 0 to turn it off.        */
-  minimumOrder: 0,
+  minimumOrder: 2000,
 };
 
 
@@ -92,13 +92,13 @@ const MENU = [
     items: [
       {
         name: "Jollof rice and beef",
-        image: "images/jollof-beef.jpg",
+        image: "images/jellof-beef.png",
         price: 2600,
         popular: true,
       },
       {
         name: "White rice and beef",
-        image: "images/white-rice-beef.jpg",
+        image: "images/whiterice-beef.png",
         price: 2600,
       },
       {
@@ -133,7 +133,7 @@ const MENU = [
       },
       {
         name: "Spaghetti and beef, with egg sauce",
-        image: "images/spaghetti-beef-egg-sauce.jpg",
+        image: "images/spag-beef-egg -sauce.png",
         price: 3600,
       },
       {
@@ -153,7 +153,7 @@ const MENU = [
       },
       {
         name: "Jollof rice and chicken",
-        image: "images/jollof-chicken.jpg",
+        image: "images/jellof-chicken.png",
         price: 3400,
       },
       {
@@ -168,7 +168,7 @@ const MENU = [
       },
       {
         name: "Jollof rice and chicken, with plantain",
-        image: "images/jollof-chicken-plantain.jpg",
+        image: "images/jellof-plantain-chicken.png",
         price: 4400,
       },
       {
@@ -569,12 +569,12 @@ const MENU = [
       },
       {
         name: "½ chicken",
-        image: "images/half-chicken.jpg",
+        image: "images/half-chicken.png",
         price: 7000,
       },
       {
         name: "Full chicken",
-        image: "images/full-chicken.jpg",
+        image: "images/full-chicken.png",
         price: 13000,
       },
     ],
@@ -586,32 +586,32 @@ const MENU = [
     items: [
       {
         name: "Bitter leaf soup",
-        image: "images/bitterleaf-soup.jpg",
+        image: "images/bitter-leaf.png",
         price: 1500,
       },
       {
         name: "Oha soup",
-        image: "images/oha-soup.jpg",
+        image: "images/oha.png",
         price: 1500,
       },
       {
         name: "Okro soup",
-        image: "images/okro-soup.jpg",
+        image: "images/okra.png",
         price: 1500,
       },
       {
         name: "Egusi soup",
-        image: "images/egusi-soup.jpg",
+        image: "images/egusi.png",
         price: 1500,
       },
       {
         name: "Afang soup",
-        image: "images/afang-soup.jpg",
+        image: "images/afang.png",
         price: 2000,
       },
       {
         name: "Vegetable soup",
-        image: "images/vegetable-soup.jpg",
+        image: "images/vegetable.png",
         price: 2000,
       },
     ],
@@ -623,17 +623,17 @@ const MENU = [
     items: [
       {
         name: "Eba",
-        image: "images/eba.jpg",
+        image: "images/eba.png",
         price: 500,
       },
       {
         name: "Semo",
-        image: "images/semo.jpg",
+        image: "images/semo.png",
         price: 650,
       },
       {
         name: "Fufu",
-        image: "images/fufu.jpg",
+        image: "images/fufu.png",
         price: 650,
       },
     ],
