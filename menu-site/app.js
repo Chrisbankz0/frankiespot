@@ -59,11 +59,17 @@
 
     if (item.image) {
       const img = document.createElement("img");
-      img.src = item.image;
       img.alt = "";
       img.loading = "lazy";
       img.decoding = "async";
+      /* The fallback tile is positioned to always paint above a plain,
+         non-positioned img — that's what keeps a broken photo from ever
+         looking like a blank box. But it means a *working* photo needs
+         to explicitly remove the fallback once it's actually loaded,
+         rather than relying on paint order to hide it. */
+      img.onload = () => fallback.remove();
       img.onerror = () => img.remove();   // leaves the fallback showing
+      img.src = item.image;
       box.appendChild(img);
     }
     return box;
@@ -402,9 +408,10 @@
     photo.appendChild(fallback);
     if (item.image) {
       const img = document.createElement("img");
-      img.src = item.image;
       img.alt = "";
+      img.onload = () => fallback.remove();
       img.onerror = () => img.remove();
+      img.src = item.image;
       photo.appendChild(img);
     }
 
@@ -529,7 +536,7 @@
       out.push(`*Total: ${money(sub + BUSINESS.deliveryFee)}*`);
     }
 
-    out.push("", "Name:", "Delivery address:", "Phone number:", "", "Thanks!");
+    out.push("", "Name:", "Delivery address:", "Preferred time:");
     return out.join("\n");
   }
 
