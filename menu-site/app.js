@@ -619,7 +619,7 @@
       out.push(`*Total: ${money(sub + pack)}*`);
     }
 
-    out.push("", "Name:", "Delivery address:", "Preferred time:");
+    out.push("", "Name:", "Delivery address:", "phone number:", "", "Thanks!");
     return out.join("\n");
   }
 
