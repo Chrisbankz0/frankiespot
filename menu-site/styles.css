@@ -606,6 +606,16 @@ img{ display:block; }
   text-align:center; line-height:1.45;
   margin:12px 0 0;
 }
+.backup-link{
+  display:block;
+  width:100%;
+  margin:10px 0 0;
+  font-size:12.5px; font-weight:600;
+  color:var(--pepper);
+  text-align:center;
+  text-decoration:underline;
+  text-underline-offset:2px;
+}
 
 
 /* ---------------------------------------------------------------

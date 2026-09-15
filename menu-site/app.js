@@ -125,6 +125,7 @@
     cart.clear();
     customNote = "";
     syncCustomOrderUI();
+    el("backupBtn").style.display = "none";
     refresh();
   }
 
@@ -624,15 +625,24 @@
       out.push(`*Total: ${money(sub + pack)}*`);
     }
 
-    out.push("", "Name:", "Delivery address:", "Preferred time:");
+    out.push("", "Name:", "Delivery address:", "Phone number:", "Any special instructions?", "", "Thanks!");
     return out.join("\n");
+  }
+
+  const backupBtn = el("backupBtn");
+
+  function waLink(number) {
+    return "https://wa.me/" + number + "?text=" + encodeURIComponent(buildMessage());
   }
 
   sendBtn.onclick = () => {
     if (cart.size === 0 && !customNote) return;
-    const url =
-      "https://wa.me/" + BUSINESS.whatsapp + "?text=" + encodeURIComponent(buildMessage());
-    window.open(url, "_blank", "noopener");
+    window.open(waLink(BUSINESS.whatsapp), "_blank", "noopener");
+    if (BUSINESS.whatsappBackup) backupBtn.style.display = "";
+  };
+
+  backupBtn.onclick = () => {
+    window.open(waLink(BUSINESS.whatsappBackup), "_blank", "noopener");
   };
 
   /* ------------------------------------------------------------------

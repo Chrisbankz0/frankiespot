@@ -14,6 +14,7 @@
  * @property {string}  tagline      One line under the name.
  * @property {string}  [logo]       e.g. "images/logo.jpg". Empty shows the name as text.
  * @property {string}  whatsapp     Country code first, no plus, no spaces, no leading zero.
+ * @property {string}  [whatsappBackup]  Optional second number, offered only after the main Send is tapped.
  * @property {string}  [areas]      Delivery areas, written out.
  * @property {string}  [hours]      Opening days and times.
  * @property {string}  [instagram]  Handle including the @. Empty string hides it.

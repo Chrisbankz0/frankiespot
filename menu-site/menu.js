@@ -31,6 +31,12 @@ const BUSINESS = {
      0706 144 6572  ->  2347061446572                                    */
   whatsapp: "2348062976429",
 
+  /* Optional second number. It never shows automatically — a small
+     "message not going through?" link appears under the Send button only
+     once someone's tried the main number, so this is purely a backup,
+     not a second inbox to check every day. Leave it "" to not offer one. */
+  whatsappBackup: "2347061446572",
+
   areas: "Lagos",                          // CHECK ME — list the real areas
   hours: "Tuesday to Sunday, 9am to 3pm", // CHECK ME — real opening times
   instagram: "",                           // e.g. "@frankiespot", "" hides it
@@ -108,6 +114,7 @@ const MENU = [
         image: "images/whiterice-beef.png",
         price: 2600,
         description: "Buttery white rice with slow-stewed beef",
+        popular: true,
       },
       {
         name: "Spaghetti and beef",
@@ -261,6 +268,7 @@ const MENU = [
         price: 5400,
         description: "Jollof-style spaghetti with grilled chicken lap",
         note: "Free juice",
+        popular: true,
       },
       {
         name: "Jollof rice and chicken lap, with plantain",
@@ -303,6 +311,7 @@ const MENU = [
         price: 6400,
         description: "Jollof-style spaghetti, grilled chicken lap, spicy egg sauce",
         note: "Free juice",
+        popular: true,
       },
       {
         name: "Jollof rice and chicken lap, with plantain and egg sauce",
@@ -339,6 +348,7 @@ const MENU = [
         price: 6400,
         description: "Buttery white rice with grilled chicken wings",
         note: "Free juice",
+        soldOut: true,
       },
       {
         name: "Spaghetti and chicken wings",
