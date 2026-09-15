@@ -157,22 +157,24 @@ img{ display:block; }
   overflow-x:auto;
   padding:16px 2px 10px;
   margin:0 calc(-1 * var(--pad));
-  padding-left:var(--pad); padding-right:0;
+  padding-left:0; padding-right:0;
   scroll-snap-type:x proximity;
   -webkit-overflow-scrolling:touch;
   scrollbar-width:none; -ms-overflow-style:none;
 }
 .track::-webkit-scrollbar{ display:none; }
 
-/* A real flex item at the end of each row, standing in for padding-right —
-   browsers don't reliably keep trailing container padding visible once a
-   horizontal flex row is scrolled all the way to its end, so this is the
-   dependable version of the same gap. Width is (page padding − the gap
-   already between cards), so the last card ends flush with the page's
-   own right margin, same as the heading above it. */
-.track-end-spacer{
+/* Real flex items standing in for padding-left/padding-right on the row
+   above — mobile Safari doesn't reliably honor container padding at
+   either end of a horizontally-scrolling flex row once scroll-snap is
+   involved, so both edges use an actual spacer element instead of CSS
+   padding. Width is (page padding − the gap already between cards), so
+   the first/last card lines up with the page's own margin, same as the
+   heading above it. */
+.track-spacer{
   flex:0 0 auto;
   width:calc(var(--pad) - 14px);
+  scroll-snap-align:start;
 }
 
 .card{

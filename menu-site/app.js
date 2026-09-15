@@ -244,6 +244,11 @@
     track.className = "track";
     section.appendChild(track);
 
+    const startSpacer = document.createElement("div");
+    startSpacer.className = "track-spacer";
+    startSpacer.setAttribute("aria-hidden", "true");
+    track.appendChild(startSpacer);
+
     group.items.forEach((item) => {
       const card = document.createElement("div");
       card.className = "card" + (item.soldOut ? " is-out" : "");
@@ -317,7 +322,7 @@
     });
 
     const endSpacer = document.createElement("div");
-    endSpacer.className = "track-end-spacer";
+    endSpacer.className = "track-spacer";
     endSpacer.setAttribute("aria-hidden", "true");
     track.appendChild(endSpacer);
 
@@ -625,7 +630,7 @@
       out.push(`*Total: ${money(sub + pack)}*`);
     }
 
-    out.push("", "Name:", "Delivery address:", "Phone number:", "Any special instructions?", "", "Thanks!");
+    out.push("", "Name:", "Delivery address:", "Phone number:", "Any special instructions? you can drop them here.", "",`Thanks for your order!`);
     return out.join("\n");
   }
 
