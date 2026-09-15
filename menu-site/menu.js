@@ -37,7 +37,7 @@ const BUSINESS = {
      not a second inbox to check every day. Leave it "" to not offer one. */
   whatsappBackup: "2347061446572",
 
-  areas: "Lagos",                          // CHECK ME — list the real areas
+  // areas: "Lagos",                          // CHECK ME — list the real areas
   hours: "Tuesday to Sunday, 9am to 3pm", // CHECK ME — real opening times
   instagram: "",                           // e.g. "@frankiespot", "" hides it
 
@@ -45,7 +45,7 @@ const BUSINESS = {
      doesn't repeat that, it only calls out free juice on specific combos
      (tagged with note: "Free juice" on those items below). Put a general
      line here only if it's still true; leave it blank to show nothing. */
-  orderNotice: "",
+  orderNotice: "Free water with every order. Free juice on selected combos.",
 
   /* Flat delivery fee as a number, e.g. 1500.
      Leave it as null to say the fee is agreed in the WhatsApp chat.      */
@@ -348,7 +348,6 @@ const MENU = [
         price: 6400,
         description: "Buttery white rice with grilled chicken wings",
         note: "Free juice",
-        soldOut: true,
       },
       {
         name: "Spaghetti and chicken wings",
