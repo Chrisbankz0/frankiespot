@@ -315,6 +315,11 @@
       track.appendChild(card);
     });
 
+    const endSpacer = document.createElement("div");
+    endSpacer.className = "track-end-spacer";
+    endSpacer.setAttribute("aria-hidden", "true");
+    track.appendChild(endSpacer);
+
     menuEl.appendChild(section);
   });
 
@@ -619,7 +624,7 @@
       out.push(`*Total: ${money(sub + pack)}*`);
     }
 
-    out.push("", "Name:", "Delivery address:", "phone number:", "", "Thanks!");
+    out.push("", "Name:", "Delivery address:", "Preferred time:");
     return out.join("\n");
   }
 
