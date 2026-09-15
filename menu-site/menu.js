@@ -29,7 +29,7 @@ const BUSINESS = {
   /* CHECK ME — WhatsApp number that receives every order.
      Format: country code first, NO plus sign, NO spaces, NO leading zero.
      0706 144 6572  ->  2347061446572                                    */
-  whatsapp: "2347061446572",
+  whatsapp: "2348062976429",
 
   areas: "Lagos",                          // CHECK ME — list the real areas
   hours: "Tuesday to Sunday, 9am to 3pm", // CHECK ME — real opening times
