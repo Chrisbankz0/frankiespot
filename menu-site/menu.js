@@ -753,43 +753,19 @@ const MENU = [
 
   {
     category: "Shawarma",
-    blurb: "Chicken, beef or mixed — regular or large",
+    blurb: "Chicken, or mixed — regular or large",
     items: [
       {
-        name: "Chicken Shawarma (Regular)",
+        name: "Chicken Shawarma (Single Hotdog)",
         image: "images/shawarma-chicken-regular.jpg",
-        price: 1500,
+        price: 4500,
         description: "Grilled chicken, veg & sauce in flatbread",
       },
       {
-        name: "Chicken Shawarma (Large)",
+        name: "Chicken Shawarma (Double Hotdog)",
         image: "images/shawarma-chicken-large.jpg",
-        price: 2000,
+        price: 5500,
         description: "Grilled chicken, veg & sauce in flatbread",
-      },
-      {
-        name: "Beef Shawarma (Regular)",
-        image: "images/shawarma-beef-regular.jpg",
-        price: 2000,
-        description: "Grilled beef, veg & sauce in flatbread",
-      },
-      {
-        name: "Beef Shawarma (Large)",
-        image: "images/shawarma-beef-large.jpg",
-        price: 2500,
-        description: "Grilled beef, veg & sauce in flatbread",
-      },
-      {
-        name: "Mixed Shawarma (Regular)",
-        image: "images/shawarma-mixed-regular.jpg",
-        price: 2500,
-        description: "Chicken & beef, veg & sauce in flatbread",
-      },
-      {
-        name: "Mixed Shawarma (Large)",
-        image: "images/shawarma-mixed-large.jpg",
-        price: 3000,
-        description: "Chicken & beef, veg & sauce in flatbread",
       },
     ],
   },
