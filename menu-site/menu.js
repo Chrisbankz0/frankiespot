@@ -154,7 +154,7 @@ const MENU = [
       },
       {
         name: "Spaghetti and beef, with egg sauce",
-        image: "images/spag-beef-egg -sauce.png",
+        image: "images/spaghetti-beef-egg-sauce.jpg",
         price: 3600,
         description: "Jollof-style spaghetti, slow-stewed beef, spicy egg sauce",
       },
@@ -244,7 +244,7 @@ const MENU = [
       },
       {
         name: "Spaghetti and chicken, with plantain and egg sauce",
-        image: "images/spag-plantain-chicken-egg.png",
+        image: "images/spaghetti-chicken-lap-combo.jpg",
         price: 5400,
         description: "Jollof-style spaghetti, grilled chicken, sweet plantain & spicy egg sauce",
       },
@@ -330,7 +330,7 @@ const MENU = [
       },
       {
         name: "Spaghetti and chicken lap, with plantain and egg sauce",
-        image: "images/spag-plantain-egg-chickenlap.png",
+        image: "images/spaghetti-chicken-lap-combo.jpg",
         price: 7400,
         description: "Jollof-style spaghetti, grilled chicken lap, sweet plantain & spicy egg sauce",
         note: "Free juice",
@@ -681,12 +681,14 @@ const MENU = [
         image: "images/shawarma-chicken-regular.jpeg",
         price: 4500,
         description: "Grilled chicken, veg & sauce in flatbread",
+        note: "Free coke",
       },
       {
         name: "Chicken Shawarma (Double Hotdog)",
         image: "images/shawarma-chicken-large.jpeg",
         price: 5500,
         description: "Grilled chicken, veg & sauce in flatbread",
+        note: "Free coke",
       },
     ],
   },

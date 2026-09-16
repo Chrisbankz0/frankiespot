@@ -246,66 +246,6 @@ Same style as before. Now generate: a mound of fluffy, plain white rice, grains 
 Same style as before. Now generate: spaghetti coated in a rich red-orange tomato and pepper stew, strands glossy, plus one roasted chicken leg quarter with deep brown, glazed, slightly charred skin, plus a small spoon of Nigerian egg sauce (scrambled eggs in tomato, pepper and onion) beside it, plus two to three slices of fried ripe plantain (dodo) with caramelised edges. Overhead shot, plain plate, plain background, matching the reference image exactly.
 ```
 
-**`jollof-chicken-wings.jpg`** — Jollof rice and chicken wings (₦6,400)
-```
-Same style as before. Now generate: a mound of glossy, deep red-orange party jollof rice with distinct, slightly firm grains and a faint smoky char, plus three to four grilled chicken wings with a glossy, charred-edge glaze. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`white-rice-chicken-wings.jpg`** — White rice and chicken wings (₦6,400)
-```
-Same style as before. Now generate: a mound of fluffy, plain white rice, grains separate and glistening slightly with butter, plus three to four grilled chicken wings with a glossy, charred-edge glaze. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`spaghetti-chicken-wings.jpg`** — Spaghetti and chicken wings (₦6,400)
-```
-Same style as before. Now generate: spaghetti coated in a rich red-orange tomato and pepper stew, strands glossy, plus three to four grilled chicken wings with a glossy, charred-edge glaze. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`jollof-chicken-wings-plantain.jpg`** — Jollof rice and chicken wings, with plantain (₦7,400)
-```
-Same style as before. Now generate: a mound of glossy, deep red-orange party jollof rice with distinct, slightly firm grains and a faint smoky char, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus two to three slices of fried ripe plantain (dodo) with caramelised edges. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`white-rice-chicken-wings-plantain.jpg`** — White rice and chicken wings, with plantain (₦7,400)
-```
-Same style as before. Now generate: a mound of fluffy, plain white rice, grains separate and glistening slightly with butter, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus two to three slices of fried ripe plantain (dodo) with caramelised edges. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`spaghetti-chicken-wings-plantain.jpg`** — Spaghetti and chicken wings, with plantain (₦7,400)
-```
-Same style as before. Now generate: spaghetti coated in a rich red-orange tomato and pepper stew, strands glossy, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus two to three slices of fried ripe plantain (dodo) with caramelised edges. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`jollof-chicken-wings-egg-sauce.jpg`** — Jollof rice and chicken wings, with egg sauce (₦7,400)
-```
-Same style as before. Now generate: a mound of glossy, deep red-orange party jollof rice with distinct, slightly firm grains and a faint smoky char, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus a small spoon of Nigerian egg sauce (scrambled eggs in tomato, pepper and onion) beside it. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`white-rice-chicken-wings-egg-sauce.jpg`** — White rice and chicken wings, with egg sauce (₦7,400)
-```
-Same style as before. Now generate: a mound of fluffy, plain white rice, grains separate and glistening slightly with butter, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus a small spoon of Nigerian egg sauce (scrambled eggs in tomato, pepper and onion) beside it. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`spaghetti-chicken-wings-egg-sauce.jpg`** — Spaghetti and chicken wings, with egg sauce (₦7,400)
-```
-Same style as before. Now generate: spaghetti coated in a rich red-orange tomato and pepper stew, strands glossy, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus a small spoon of Nigerian egg sauce (scrambled eggs in tomato, pepper and onion) beside it. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`jollof-chicken-wings-combo.jpg`** — Jollof rice and chicken wings, with plantain and egg sauce (₦8,400)
-```
-Same style as before. Now generate: a mound of glossy, deep red-orange party jollof rice with distinct, slightly firm grains and a faint smoky char, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus a small spoon of Nigerian egg sauce (scrambled eggs in tomato, pepper and onion) beside it, plus two to three slices of fried ripe plantain (dodo) with caramelised edges. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`white-rice-chicken-wings-combo.jpg`** — White rice and chicken wings, with plantain and egg sauce (₦8,400)
-```
-Same style as before. Now generate: a mound of fluffy, plain white rice, grains separate and glistening slightly with butter, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus a small spoon of Nigerian egg sauce (scrambled eggs in tomato, pepper and onion) beside it, plus two to three slices of fried ripe plantain (dodo) with caramelised edges. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
-**`spaghetti-chicken-wings-combo.jpg`** — Spaghetti and chicken wings, with plantain and egg sauce (₦8,400)
-```
-Same style as before. Now generate: spaghetti coated in a rich red-orange tomato and pepper stew, strands glossy, plus three to four grilled chicken wings with a glossy, charred-edge glaze, plus a small spoon of Nigerian egg sauce (scrambled eggs in tomato, pepper and onion) beside it, plus two to three slices of fried ripe plantain (dodo) with caramelised edges. Overhead shot, plain plate, plain background, matching the reference image exactly.
-```
-
 **`jollof-turkey.jpg`** — Jollof rice and turkey (₦6,400)
 ```
 Same style as before. Now generate: a mound of glossy, deep red-orange party jollof rice with distinct, slightly firm grains and a faint smoky char, plus a seasoned, well-grilled piece of turkey with golden-brown skin. Overhead shot, plain plate, plain background, matching the reference image exactly.
