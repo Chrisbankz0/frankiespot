@@ -37,7 +37,7 @@ const BUSINESS = {
      not a second inbox to check every day. Leave it "" to not offer one. */
   whatsappBackup: "2347061446572",
 
-  // areas: "Lagos",                          // CHECK ME — list the real areas
+  areas: "Lagos",                          // CHECK ME — list the real areas
   hours: "Tuesday to Sunday, 9am to 3pm", // CHECK ME — real opening times
   instagram: "",                           // e.g. "@frankiespot", "" hides it
 
@@ -45,7 +45,7 @@ const BUSINESS = {
      doesn't repeat that, it only calls out free juice on specific combos
      (tagged with note: "Free juice" on those items below). Put a general
      line here only if it's still true; leave it blank to show nothing. */
-  orderNotice: "Free water with every order. Free juice on selected combos.",
+  orderNotice: "Every meal comes with a bottle of water",
 
   /* Flat delivery fee as a number, e.g. 1500.
      Leave it as null to say the fee is agreed in the WhatsApp chat.      */
@@ -335,90 +335,91 @@ const MENU = [
         description: "Jollof-style spaghetti, grilled chicken lap, sweet plantain & spicy egg sauce",
         note: "Free juice",
       },
-      // {
-      //   name: "Jollof rice and chicken wings",
-      //   image: "images/jollof-wings.png",
-      //   price: 6400,
-      //   description: "Smoky party jollof with grilled chicken wings",
-      //   note: "Free juice",
-      // },
-        // {
-        //   name: "White rice and chicken wings",
-        //   image: "images/whiterice-wings.png",
-        //   price: 6400,
-        //   description: "Buttery white rice with grilled chicken wings",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "Spaghetti and chicken wings",
-        //   image: "images/spag-wings.png",
-        //   price: 6400,
-        //   description: "Jollof-style spaghetti with grilled chicken wings",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "Jollof rice and chicken wings, with plantain",
-        //   image: "images/jollof-wings-plantain.png",
-        //   price: 7400,
-        //   description: "Smoky party jollof, grilled chicken wings, sweet fried plantain",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "White rice and chicken wings, with plantain",
-        //   image: "images/whiterice-wings-plantain.png",
-        //   price: 7400,
-        //   description: "Buttery white rice, grilled chicken wings, sweet fried plantain",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "Spaghetti and chicken wings, with plantain",
-        //   image: "images/spag-wings-plantain.png",
-        //   price: 7400,
-        //   description: "Jollof-style spaghetti, grilled chicken wings, sweet fried plantain",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "Jollof rice and chicken wings, with egg sauce",
-        //   image: "images/jollof-wings-egg.png",
-        //   price: 7400,
-        //   description: "Smoky party jollof, grilled chicken wings, spicy egg sauce",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "White rice and chicken wings, with egg sauce",
-        //   image: "images/whiterice-wings-egg.png",
-        //   price: 7400,
-        //   description: "Buttery white rice, grilled chicken wings, spicy egg sauce",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "Spaghetti and chicken wings, with egg sauce",
-        //   image: "images/spag-wings-egg.png",
-        //   price: 7400,
-        //   description: "Jollof-style spaghetti, grilled chicken wings, spicy egg sauce",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "Jollof rice and chicken wings, with plantain and egg sauce",
-        //   image: "images/jollof-wings-plantain-egg.png",
-        //   price: 8400,
-        //   description: "Smoky party jollof, grilled chicken wings, sweet plantain & spicy egg sauce",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "White rice and chicken wings, with plantain and egg sauce",
-        //   image: "images/whiterice-wings-plantain-egg.png",
-        //   price: 8400,
-        //   description: "Buttery white rice, grilled chicken wings, sweet plantain & spicy egg sauce",
-        //   note: "Free juice",
-        // },
-        // {
-        //   name: "Spaghetti and chicken wings, with plantain and egg sauce",
-        //   image: "images/spag-wings-plantain-egg.png",
-        //   price: 8400,
-        //   description: "Jollof-style spaghetti, grilled chicken wings, sweet plantain & spicy egg sauce",
-        //   note: "Free juice",
-        // },
+      {
+        name: "Jollof rice and chicken wings",
+        image: "images/jollof-wings.png",
+        price: 6400,
+        description: "Smoky party jollof with grilled chicken wings",
+        note: "Free juice",
+      },
+      {
+        name: "White rice and chicken wings",
+        image: "images/whiterice-wings.png",
+        price: 6400,
+        description: "Buttery white rice with grilled chicken wings",
+        note: "Free juice",
+        soldOut: true,
+      },
+      {
+        name: "Spaghetti and chicken wings",
+        image: "images/spag-wings.png",
+        price: 6400,
+        description: "Jollof-style spaghetti with grilled chicken wings",
+        note: "Free juice",
+      },
+      {
+        name: "Jollof rice and chicken wings, with plantain",
+        image: "images/jollof-wings-plantain.png",
+        price: 7400,
+        description: "Smoky party jollof, grilled chicken wings, sweet fried plantain",
+        note: "Free juice",
+      },
+      {
+        name: "White rice and chicken wings, with plantain",
+        image: "images/whiterice-wings-plantain.png",
+        price: 7400,
+        description: "Buttery white rice, grilled chicken wings, sweet fried plantain",
+        note: "Free juice",
+      },
+      {
+        name: "Spaghetti and chicken wings, with plantain",
+        image: "images/spag-wings-plantain.png",
+        price: 7400,
+        description: "Jollof-style spaghetti, grilled chicken wings, sweet fried plantain",
+        note: "Free juice",
+      },
+      {
+        name: "Jollof rice and chicken wings, with egg sauce",
+        image: "images/jollof-wings-egg.png",
+        price: 7400,
+        description: "Smoky party jollof, grilled chicken wings, spicy egg sauce",
+        note: "Free juice",
+      },
+      {
+        name: "White rice and chicken wings, with egg sauce",
+        image: "images/whiterice-wings-egg.png",
+        price: 7400,
+        description: "Buttery white rice, grilled chicken wings, spicy egg sauce",
+        note: "Free juice",
+      },
+      {
+        name: "Spaghetti and chicken wings, with egg sauce",
+        image: "images/spag-wings-egg.png",
+        price: 7400,
+        description: "Jollof-style spaghetti, grilled chicken wings, spicy egg sauce",
+        note: "Free juice",
+      },
+      {
+        name: "Jollof rice and chicken wings, with plantain and egg sauce",
+        image: "images/jollof-wings-plantain-egg.png",
+        price: 8400,
+        description: "Smoky party jollof, grilled chicken wings, sweet plantain & spicy egg sauce",
+        note: "Free juice",
+      },
+      {
+        name: "White rice and chicken wings, with plantain and egg sauce",
+        image: "images/whiterice-wings-plantain-egg.png",
+        price: 8400,
+        description: "Buttery white rice, grilled chicken wings, sweet plantain & spicy egg sauce",
+        note: "Free juice",
+      },
+      {
+        name: "Spaghetti and chicken wings, with plantain and egg sauce",
+        image: "images/spag-wings-plantain-egg.png",
+        price: 8400,
+        description: "Jollof-style spaghetti, grilled chicken wings, sweet plantain & spicy egg sauce",
+        note: "Free juice",
+      },
       {
         name: "Jollof rice and turkey",
         image: "images/jellof-turkey.png",
@@ -746,6 +747,49 @@ const MENU = [
         image: "images/fufu.png",
         price: 650,
         description: "Soft cassava swallow",
+      },
+    ],
+  },
+
+  {
+    category: "Shawarma",
+    blurb: "Chicken, beef or mixed — regular or large",
+    items: [
+      {
+        name: "Chicken Shawarma (Regular)",
+        image: "images/shawarma-chicken-regular.jpg",
+        price: 1500,
+        description: "Grilled chicken, veg & sauce in flatbread",
+      },
+      {
+        name: "Chicken Shawarma (Large)",
+        image: "images/shawarma-chicken-large.jpg",
+        price: 2000,
+        description: "Grilled chicken, veg & sauce in flatbread",
+      },
+      {
+        name: "Beef Shawarma (Regular)",
+        image: "images/shawarma-beef-regular.jpg",
+        price: 2000,
+        description: "Grilled beef, veg & sauce in flatbread",
+      },
+      {
+        name: "Beef Shawarma (Large)",
+        image: "images/shawarma-beef-large.jpg",
+        price: 2500,
+        description: "Grilled beef, veg & sauce in flatbread",
+      },
+      {
+        name: "Mixed Shawarma (Regular)",
+        image: "images/shawarma-mixed-regular.jpg",
+        price: 2500,
+        description: "Chicken & beef, veg & sauce in flatbread",
+      },
+      {
+        name: "Mixed Shawarma (Large)",
+        image: "images/shawarma-mixed-large.jpg",
+        price: 3000,
+        description: "Chicken & beef, veg & sauce in flatbread",
       },
     ],
   },

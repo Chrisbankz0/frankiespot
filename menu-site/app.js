@@ -126,6 +126,8 @@
     customNote = "";
     syncCustomOrderUI();
     el("backupBtn").style.display = "none";
+    orderSaved = false;
+    showCartScreen();
     refresh();
   }
 
@@ -215,6 +217,147 @@
   /* Every add button on the page, so refresh() can update them in place. */
   const controls = [];
 
+  /* Builds one card for an item — used both for the regular category
+     rows and for the Bestsellers row below, so the two never drift out
+     of sync with each other. */
+  function buildCard(item) {
+    const card = document.createElement("div");
+    card.className = "card" + (item.soldOut ? " is-out" : "");
+    card.dataset.itemName = item.name;
+
+    const media = document.createElement("div");
+    media.className = "card-media";
+
+    /* Photo opens the detail view. The + button sits on top of it as
+       its own control, so tapping the corner never opens the detail. */
+    const photoBtn = document.createElement("button");
+    photoBtn.type = "button";
+    photoBtn.className = "card-photo-btn";
+    photoBtn.setAttribute("aria-label", "See details for " + item.name);
+    photoBtn.onclick = () => openDetail(item);
+    photoBtn.appendChild(thumbnail(item));
+    media.appendChild(photoBtn);
+
+    if (item.bonanza && !item.soldOut) {
+      const badge = document.createElement("span");
+      badge.className = "card-badge";
+      badge.textContent = "-30%";
+      media.appendChild(badge);
+    } else if (item.soldOut) {
+      const badge = document.createElement("span");
+      badge.className = "card-badge out";
+      badge.textContent = "Finished";
+      media.appendChild(badge);
+    }
+
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = "card-plus";
+    plus.disabled = !!item.soldOut;
+    plus.setAttribute("aria-label", "Add " + item.name);
+    plus.innerHTML =
+      `<span class="card-plus-icon" aria-hidden="true">+</span>` +
+      `<span class="card-plus-badge" aria-hidden="true"></span>`;
+    plus.onclick = () => {
+      /* A dish with size/base choices can't be added blind from the
+         card — open the detail view so the choice gets made first. */
+      if (item.sizes && item.sizes.length) { openDetail(item); return; }
+      addToCart(item.name, item.name, item.price, item);
+    };
+    media.appendChild(plus);
+
+    /* Shows how many of this dish are already in the cart, right on
+       the card — otherwise it's easy to lose track while scrolling
+       sideways through a long row and tap + again by mistake. Only
+       wired up for simple items; a dish with size choices is added
+       via the detail view instead, so there's no single card-level
+       count that would make sense to show. */
+    if (!(item.sizes && item.sizes.length)) {
+      const badgeEl = plus.querySelector(".card-plus-badge");
+      const renderBadge = () => {
+        const line = cart.get(item.name);
+        const qty = line ? line.qty : 0;
+        badgeEl.textContent = qty > 0 ? String(qty) : "";
+        badgeEl.classList.toggle("is-visible", qty > 0);
+        plus.setAttribute(
+          "aria-label",
+          qty > 0 ? `${item.name}, ${qty} in cart, add one more` : "Add " + item.name
+        );
+      };
+      renderBadge();
+      controls.push(renderBadge);
+    }
+
+    card.appendChild(media);
+
+    const info = document.createElement("div");
+    info.className = "card-info";
+
+    let tags = "";
+    if (item.popular && !item.soldOut) tags += `<span class="tag">Bestseller</span>`;
+    if (item.note) tags += `<span class="tag info">${esc(item.note)}</span>`;
+
+    info.innerHTML =
+      `<div class="card-name">${esc(item.name)}</div>` +
+      (tags ? `<div class="card-tags">${tags}</div>` : "");
+
+    const priceRow = document.createElement("div");
+    priceRow.className = "card-price";
+    if (item.sizes && item.sizes.length) {
+      const cheapest = Math.min(...item.sizes.map((s) => s.price));
+      priceRow.innerHTML = `<span class="price">From ${money(cheapest)}</span>`;
+    } else {
+      priceRow.innerHTML =
+        (item.bonanza ? `<span class="price-was">${money(wasPrice(item.price))}</span>` : "") +
+        `<span class="price">${money(item.price)}</span>`;
+    }
+    info.appendChild(priceRow);
+    card.appendChild(info);
+
+    return card;
+  }
+
+  /* Bestsellers — every item tagged popular: true, gathered into its
+     own row right at the top, so a first-time visitor sees the
+     highlights immediately instead of having to dig into 60 combo
+     items first to find them. No nav pill of its own; it's already
+     the first thing on the page. */
+  const bestsellerItems = [];
+  MENU.forEach((group) => {
+    group.items.forEach((item) => {
+      if (item.popular && !item.soldOut) bestsellerItems.push(item);
+    });
+  });
+
+  if (bestsellerItems.length) {
+    const section = document.createElement("section");
+    section.className = "group";
+    section.id = "group-bestsellers";
+
+    const head = document.createElement("div");
+    head.className = "group-head";
+    head.innerHTML = `<h2>Bestsellers</h2><span>What everyone's ordering</span>`;
+    section.appendChild(head);
+
+    const track = document.createElement("div");
+    track.className = "track";
+    section.appendChild(track);
+
+    const startSpacer = document.createElement("div");
+    startSpacer.className = "track-spacer";
+    startSpacer.setAttribute("aria-hidden", "true");
+    track.appendChild(startSpacer);
+
+    bestsellerItems.forEach((item) => track.appendChild(buildCard(item)));
+
+    const endSpacer = document.createElement("div");
+    endSpacer.className = "track-spacer";
+    endSpacer.setAttribute("aria-hidden", "true");
+    track.appendChild(endSpacer);
+
+    menuEl.appendChild(section);
+  }
+
   MENU.forEach((group) => {
     const secId = "group-" + slug(group.category);
 
@@ -249,77 +392,7 @@
     startSpacer.setAttribute("aria-hidden", "true");
     track.appendChild(startSpacer);
 
-    group.items.forEach((item) => {
-      const card = document.createElement("div");
-      card.className = "card" + (item.soldOut ? " is-out" : "");
-
-      const media = document.createElement("div");
-      media.className = "card-media";
-
-      /* Photo opens the detail view. The + button sits on top of it as
-         its own control, so tapping the corner never opens the detail. */
-      const photoBtn = document.createElement("button");
-      photoBtn.type = "button";
-      photoBtn.className = "card-photo-btn";
-      photoBtn.setAttribute("aria-label", "See details for " + item.name);
-      photoBtn.onclick = () => openDetail(item);
-      photoBtn.appendChild(thumbnail(item));
-      media.appendChild(photoBtn);
-
-      if (item.bonanza && !item.soldOut) {
-        const badge = document.createElement("span");
-        badge.className = "card-badge";
-        badge.textContent = "-30%";
-        media.appendChild(badge);
-      } else if (item.soldOut) {
-        const badge = document.createElement("span");
-        badge.className = "card-badge out";
-        badge.textContent = "Finished";
-        media.appendChild(badge);
-      }
-
-      const plus = document.createElement("button");
-      plus.type = "button";
-      plus.className = "card-plus";
-      plus.disabled = !!item.soldOut;
-      plus.textContent = "+";
-      plus.setAttribute("aria-label", "Add " + item.name);
-      plus.onclick = () => {
-        /* A dish with size/base choices can't be added blind from the
-           card — open the detail view so the choice gets made first. */
-        if (item.sizes && item.sizes.length) { openDetail(item); return; }
-        addToCart(item.name, item.name, item.price, item);
-      };
-      media.appendChild(plus);
-
-      card.appendChild(media);
-
-      const info = document.createElement("div");
-      info.className = "card-info";
-
-      let tags = "";
-      if (item.popular && !item.soldOut) tags += `<span class="tag">Bestseller</span>`;
-      if (item.note) tags += `<span class="tag info">${esc(item.note)}</span>`;
-
-      info.innerHTML =
-        `<div class="card-name">${esc(item.name)}</div>` +
-        (tags ? `<div class="card-tags">${tags}</div>` : "");
-
-      const priceRow = document.createElement("div");
-      priceRow.className = "card-price";
-      if (item.sizes && item.sizes.length) {
-        const cheapest = Math.min(...item.sizes.map((s) => s.price));
-        priceRow.innerHTML = `<span class="price">From ${money(cheapest)}</span>`;
-      } else {
-        priceRow.innerHTML =
-          (item.bonanza ? `<span class="price-was">${money(wasPrice(item.price))}</span>` : "") +
-          `<span class="price">${money(item.price)}</span>`;
-      }
-      info.appendChild(priceRow);
-      card.appendChild(info);
-
-      track.appendChild(card);
-    });
+    group.items.forEach((item) => track.appendChild(buildCard(item)));
 
     const endSpacer = document.createElement("div");
     endSpacer.className = "track-spacer";
@@ -333,16 +406,36 @@
      Cart bar and order sheet
      ------------------------------------------------------------------ */
 
-  const bar = el("cartBar");
+  const bar = el("barBtn");
   const sheet = el("sheet");
   const scrim = el("scrim");
+  const cartScreen = el("cartScreen");
+  const detailsScreen = el("detailsScreen");
+  const continueBtn = el("continueBtn");
   const sendBtn = el("sendBtn");
   let lastFocused = null;
+
+  function showCartScreen() {
+    cartScreen.style.display = "";
+    detailsScreen.style.display = "none";
+  }
+
+  function showDetailsScreen() {
+    cartScreen.style.display = "none";
+    detailsScreen.style.display = "";
+    /* Reuse the last name/phone typed on this device, since asking the
+       same regular customer to retype it every single order is exactly
+       the kind of friction this whole change was meant to remove. */
+    if (!el("custName").value) el("custName").value = localStorage.getItem("fp_name") || "";
+    if (!el("custPhone").value) el("custPhone").value = localStorage.getItem("fp_phone") || "";
+    if (!el("custAddress").value) el("custAddress").value = localStorage.getItem("fp_address") || "";
+    el("custName").focus();
+  }
 
   function refresh() {
     const count = itemCount();
     el("barCount").textContent = count;
-    el("barTotal").textContent = money(subtotal());
+    bar.setAttribute("aria-label", `Review your order — ${count} item${count === 1 ? "" : "s"}, ${money(subtotal())}`);
     bar.classList.toggle("is-visible", count > 0 || !!customNote);
 
     controls.forEach((render) => render());
@@ -355,6 +448,7 @@
 
   function openSheet() {
     lastFocused = document.activeElement;
+    showCartScreen();
     renderSheet();
     sheet.classList.add("is-open");
     scrim.classList.add("is-open");
@@ -375,6 +469,7 @@
   el("closeSheet").onclick = closeSheet;
   scrim.onclick = closeSheet;
   el("clearBtn").onclick = clearCart;
+  el("backToCartBtn").onclick = showCartScreen;
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && sheet.classList.contains("is-open")) closeSheet();
   });
@@ -596,7 +691,7 @@
     el("totals").innerHTML = rows.join("");
 
     el("clearBtn").style.visibility = (cart.size || customNote) ? "visible" : "hidden";
-    sendBtn.disabled = (cart.size === 0 && !customNote) || belowMinimum;
+    continueBtn.disabled = (cart.size === 0 && !customNote) || belowMinimum;
   }
 
   /* ------------------------------------------------------------------
@@ -605,7 +700,7 @@
      number in BUSINESS.whatsapp, ready for the customer to send.
      ------------------------------------------------------------------ */
 
-  function buildMessage() {
+  function buildMessage(details) {
     const sub = subtotal();
     const pack = packagingFee();
     const out = [`*New order — ${BUSINESS.name}*`, ""];
@@ -630,24 +725,122 @@
       out.push(`*Total: ${money(sub + pack)}*`);
     }
 
-    out.push("", "Name:", "Delivery address:", "Phone number:", "Any special instructions? you can drop them here.", "",`Thanks for your order!`);
+    out.push("", `Name: ${details.name}`, `Phone: ${details.phone}`, `Delivery address: ${details.address}`);
+    if (details.time) out.push(`Preferred time: ${details.time}`);
+
     return out.join("\n");
   }
 
   const backupBtn = el("backupBtn");
+  let lastDetails = null; // so the backup-number retry reuses the same details
 
-  function waLink(number) {
-    return "https://wa.me/" + number + "?text=" + encodeURIComponent(buildMessage());
+  function waLink(number, details) {
+    return "https://wa.me/" + number + "?text=" + encodeURIComponent(buildMessage(details));
+  }
+
+  /* ------------------------------------------------------------------
+     Dashboard order-saving
+     Fires once per order, the instant "Send" is tapped — before the
+     WhatsApp chat even opens. This never blocks or delays the WhatsApp
+     handoff: if the save fails for any reason (offline, misconfigured
+     database), the order still goes through exactly as before. Nothing
+     here is customer-visible.
+     ------------------------------------------------------------------ */
+
+  const dbClient =
+    typeof supabase !== "undefined" &&
+    typeof SUPABASE_URL !== "undefined" &&
+    SUPABASE_URL &&
+    SUPABASE_ANON_KEY
+      ? /* persistSession: false — this page is for anonymous customers
+           only. Without this, a staff member testing both this page and
+           admin.html in the same browser would have their logged-in
+           session picked up here too, which breaks order-saving since
+           staff accounts aren't allowed to CREATE orders, only view and
+           cancel them. */
+        supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: { persistSession: false },
+        })
+      : null;
+
+  let orderSaved = false;
+
+  function saveOrderToDatabase(numberUsed, details) {
+    if (!dbClient || orderSaved) return;
+    orderSaved = true;
+
+    const items = [...cart.values()].map((line) => ({
+      name: line.name,
+      qty: line.qty,
+      unit_price: line.unit,
+      line_total: line.unit * line.qty,
+    }));
+    const sub = subtotal();
+    const pack = packagingFee();
+    const total = sub + pack + (BUSINESS.deliveryFee || 0);
+
+    dbClient
+      .from("orders")
+      .insert({
+        items,
+        custom_note: customNote || null,
+        subtotal: sub,
+        packaging_fee: pack,
+        delivery_fee: BUSINESS.deliveryFee,
+        total,
+        whatsapp_used: numberUsed,
+        customer_name: details.name,
+        customer_phone: details.phone,
+        customer_address: details.address,
+        preferred_time: details.time || null,
+      })
+      .then(({ error }) => {
+        if (error) console.error("Order save failed (order still sent fine):", error);
+      });
+  }
+
+  continueBtn.onclick = () => {
+    if (continueBtn.disabled) return;
+    showDetailsScreen();
+  };
+
+  /* Reads and checks the details form. Returns null (and shows an inline
+     error) if something required is missing, otherwise the details. */
+  function readDetails() {
+    const name = el("custName").value.trim();
+    const phone = el("custPhone").value.trim();
+    const address = el("custAddress").value.trim();
+    const time = el("custTime").value.trim();
+    const errEl = el("detailsError");
+
+    if (!name || !phone || !address) {
+      errEl.textContent = "Please fill in your name, phone number and delivery address.";
+      errEl.style.display = "";
+      return null;
+    }
+    errEl.style.display = "none";
+    return { name, phone, address, time };
   }
 
   sendBtn.onclick = () => {
-    if (cart.size === 0 && !customNote) return;
-    window.open(waLink(BUSINESS.whatsapp), "_blank", "noopener");
+    const details = readDetails();
+    if (!details) return;
+
+    localStorage.setItem("fp_name", details.name);
+    localStorage.setItem("fp_phone", details.phone);
+    localStorage.setItem("fp_address", details.address);
+
+    lastDetails = details;
+    saveOrderToDatabase(BUSINESS.whatsapp, details);
+    window.open(waLink(BUSINESS.whatsapp, details), "_blank", "noopener");
     if (BUSINESS.whatsappBackup) backupBtn.style.display = "";
   };
 
   backupBtn.onclick = () => {
-    window.open(waLink(BUSINESS.whatsappBackup), "_blank", "noopener");
+    const details = lastDetails || readDetails();
+    if (!details) return;
+    saveOrderToDatabase(BUSINESS.whatsappBackup, details);
+    window.open(waLink(BUSINESS.whatsappBackup, details), "_blank", "noopener");
   };
 
   /* ------------------------------------------------------------------
@@ -670,5 +863,129 @@
   );
   document.querySelectorAll(".group").forEach((s) => observer.observe(s));
 
+  /* ------------------------------------------------------------------
+     Search
+     A flat index built once from MENU, independent of however the
+     cards are grouped/laid out — search results are shown as their
+     own simple vertical list, not the horizontal category rows.
+     ------------------------------------------------------------------ */
+
+  const searchIndex = [];
+  MENU.forEach((group) => {
+    group.items.forEach((item) => searchIndex.push({ item, category: group.category }));
+  });
+
+  function matchesQuery(item, q) {
+    return (
+      item.name.toLowerCase().includes(q) ||
+      (item.description || "").toLowerCase().includes(q)
+    );
+  }
+
+  const searchInput = el("menuSearch");
+  const searchClearBtn = el("searchClear");
+  const searchResultsEl = el("searchResults");
+  const customBlockEl = document.querySelector(".custom-block");
+
+  function renderSearchResults(rawQuery) {
+    const q = rawQuery.trim().toLowerCase();
+    searchClearBtn.style.display = q ? "" : "none";
+
+    if (!q) {
+      searchResultsEl.style.display = "none";
+      menuEl.style.display = "";
+      if (customBlockEl) customBlockEl.style.display = "";
+      return;
+    }
+
+    menuEl.style.display = "none";
+    if (customBlockEl) customBlockEl.style.display = "none";
+    searchResultsEl.style.display = "";
+
+    const matches = searchIndex.filter(({ item }) => matchesQuery(item, q));
+    el("searchCount").textContent = matches.length
+      ? `${matches.length} dish${matches.length === 1 ? "" : "es"} found`
+      : `No dishes found for "${rawQuery.trim()}"`;
+
+    const list = el("searchList");
+    list.innerHTML = "";
+
+    matches.forEach(({ item, category }) => {
+      const row = document.createElement("div");
+      row.className = "search-row" + (item.soldOut ? " is-out" : "");
+
+      const tap = document.createElement("button");
+      tap.type = "button";
+      tap.className = "search-row-tap";
+      tap.setAttribute("aria-label", "See details for " + item.name);
+      tap.onclick = () => openDetail(item);
+      tap.appendChild(thumbnail(item));
+
+      const body = document.createElement("div");
+      body.className = "search-row-body";
+      body.innerHTML =
+        `<div class="search-row-cat">${esc(category)}</div>` +
+        `<div class="search-row-name">${esc(item.name)}</div>` +
+        `<div class="search-row-price">${money(item.price)}</div>`;
+      tap.appendChild(body);
+      row.appendChild(tap);
+
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.className = "search-row-plus";
+      plus.disabled = !!item.soldOut;
+      plus.dataset.item = item.name;
+      plus.innerHTML =
+        `<span class="search-row-plus-icon" aria-hidden="true">+</span>` +
+        `<span class="search-row-badge" aria-hidden="true"></span>`;
+      plus.setAttribute("aria-label", "Add " + item.name);
+      plus.onclick = () => addToCart(item.name, item.name, item.price, item);
+      row.appendChild(plus);
+
+      list.appendChild(row);
+    });
+
+    updateSearchRowBadges();
+  }
+
+  /* One function, called every refresh() — rather than pushing a new
+     closure per row into `controls` each time the results list rebuilds
+     (which happens on every keystroke and would leak stale references
+     to removed rows). It just re-reads whatever rows are in the DOM
+     right now, however many that is. */
+  function updateSearchRowBadges() {
+    document.querySelectorAll(".search-row-plus[data-item]").forEach((btn) => {
+      const line = cart.get(btn.dataset.item);
+      const qty = line ? line.qty : 0;
+      const badge = btn.querySelector(".search-row-badge");
+      if (!badge) return;
+      badge.textContent = qty > 0 ? String(qty) : "";
+      badge.classList.toggle("is-visible", qty > 0);
+    });
+  }
+  controls.push(updateSearchRowBadges);
+
+  searchInput.addEventListener("input", () => renderSearchResults(searchInput.value));
+  searchClearBtn.onclick = () => {
+    searchInput.value = "";
+    renderSearchResults("");
+    searchInput.focus();
+  };
+
   refresh();
+
+  /* First-visit hint: nudge the very first scrollable row sideways
+     once, so people notice it scrolls, without being naggy about it on
+     every return visit. Skipped entirely if that row doesn't actually
+     overflow (nothing to hint at). */
+  if (!localStorage.getItem("fp_seen_scroll_hint")) {
+    localStorage.setItem("fp_seen_scroll_hint", "1");
+    const firstTrack = document.querySelector(".track");
+    if (firstTrack && firstTrack.scrollWidth > firstTrack.clientWidth + 20) {
+      setTimeout(() => {
+        firstTrack.scrollTo({ left: 46, behavior: "smooth" });
+        setTimeout(() => firstTrack.scrollTo({ left: 0, behavior: "smooth" }), 550);
+      }, 900);
+    }
+  }
 })();

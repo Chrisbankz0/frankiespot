@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Dashboard — Frankies Pot</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body class="admin-body">
+
+<!-- ===================================================================
+     LOGIN — shown until a staff account signs in.
+     =================================================================== -->
+<div id="loginView" class="admin-shell login-shell">
+  <div class="login-card">
+    <h1 class="login-title">Staff login</h1>
+    <p class="login-sub">Frankie's Pot dashboard</p>
+
+    <form id="loginForm" novalidate>
+      <label class="field-label" for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" class="field-input" required autocomplete="username" />
+
+      <label class="field-label" for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" class="field-input" required autocomplete="current-password" />
+
+      <button type="submit" class="login-btn" id="loginBtn">Log in</button>
+      <p class="login-error" id="loginError" style="display:none;"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ===================================================================
+     DASHBOARD — shown once signed in.
+     =================================================================== -->
+<div id="dashView" class="admin-shell" style="display:none;">
+
+  <header class="dash-head">
+    <div>
+      <h1>Frankie's Pot</h1>
+      <p class="dash-who" id="whoAmI"></p>
+    </div>
+    <div class="dash-head-actions">
+      <button type="button" id="refreshBtn" class="refresh-btn">↻ Refresh</button>
+      <button type="button" id="logoutBtn" class="logout-btn">Log out</button>
+    </div>
+  </header>
+
+  <section class="repay-card" id="repayCard">
+    <div class="repay-head">
+      <span class="repay-label">Site development repayment (3% of every order)</span>
+      <span class="repay-amount" id="repayAmount">₦0 of ₦1,000,000 paid</span>
+    </div>
+    <div class="repay-track">
+      <div class="repay-fill" id="repayFill" style="width:0%;"></div>
+    </div>
+
+    <div class="repay-stats">
+      <div class="repay-stat">
+        <span class="repay-stat-label">Earned</span>
+        <span class="repay-stat-value" id="repayEarned">₦0</span>
+      </div>
+      <div class="repay-stat">
+        <span class="repay-stat-label">Paid to you</span>
+        <span class="repay-stat-value" id="repayPaid">₦0</span>
+      </div>
+      <div class="repay-stat">
+        <span class="repay-stat-label">Outstanding</span>
+        <span class="repay-stat-value" id="repayOutstanding">₦0</span>
+      </div>
+    </div>
+
+    <form id="paymentForm" class="payment-form">
+      <input type="number" id="paymentAmount" class="field-input" placeholder="Amount received (₦)" min="1" required />
+      <input type="text" id="paymentNote" class="field-input" placeholder="Note (optional) — e.g. \"July settlement\"" />
+      <button type="submit" class="payment-add-btn">Log a payment</button>
+    </form>
+
+    <div class="payments-list" id="paymentsList"></div>
+  </section>
+
+  <div class="range-tabs" id="rangeTabs">
+    <button type="button" class="range-tab is-active" data-range="today">Today</button>
+    <button type="button" class="range-tab" data-range="week">This week</button>
+    <button type="button" class="range-tab" data-range="month">This month</button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Sales</div>
+      <div class="stat-value" id="statSales">₦0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Orders</div>
+      <div class="stat-value" id="statOrders">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg. order</div>
+      <div class="stat-value" id="statAvg">₦0</div>
+    </div>
+  </div>
+
+  <section class="dash-section">
+    <h2>Best sellers</h2>
+    <ol class="bestsellers" id="bestsellers"></ol>
+  </section>
+
+  <section class="dash-section">
+    <div class="dash-section-head">
+      <h2>Orders</h2>
+      <span class="dash-section-note">Cancelled orders don't count in the totals above.</span>
+    </div>
+    <div class="orders-list" id="ordersList"></div>
+  </section>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
