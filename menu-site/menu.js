@@ -682,6 +682,7 @@ const MENU = [
         price: 4500,
         description: "Grilled chicken, veg & sauce in flatbread",
         note: "Free coke",
+        popular: true,
       },
       {
         name: "Chicken Shawarma (Double Hotdog)",
@@ -689,6 +690,7 @@ const MENU = [
         price: 5500,
         description: "Grilled chicken, veg & sauce in flatbread",
         note: "Free coke",
+        popular: true,
       },
     ],
   },
