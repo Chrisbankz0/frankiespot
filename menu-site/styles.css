@@ -57,12 +57,32 @@ img{ display:block; }
    Header
    --------------------------------------------------------------- */
 .masthead{
+  position:relative;
+  overflow:hidden;
   background:linear-gradient(168deg, var(--enamel) 0%, var(--deep) 100%);
   color:#fff;
   padding:28px 0 22px;
   border-bottom:5px solid var(--gold);
 }
-.masthead .shell{ text-align:center; }
+.masthead > .shell{ position:relative; z-index:2; text-align:center; }
+
+/* A slow-rotating collage of a few bestseller photos, behind everything.
+   Purely decorative — if no photos have loaded yet, this stays empty
+   and the plain dark gradient above shows through exactly as before. */
+.masthead-bg{ position:absolute; inset:0; z-index:0; }
+.masthead-bg img{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover;
+  opacity:0;
+  transition:opacity 1.4s ease;
+}
+.masthead-bg img.is-active{ opacity:.34; }
+.masthead-bg::after{
+  content:"";
+  position:absolute; inset:0;
+  background:linear-gradient(168deg, rgba(20,16,13,.78) 0%, rgba(5,4,3,.93) 100%);
+}
 
 /* The logo badge. The artwork is a circle on black, so cropping it to a
    circle removes the flat corners and leaves the orange ring intact. */
@@ -131,6 +151,7 @@ img{ display:block; }
   white-space:nowrap;
   transition:background .18s ease, color .18s ease, border-color .18s ease;
 }
+.pill-icon{ margin-right:5px; }
 .catnav-inner button[aria-current="true"]{
   background:var(--ink); border-color:var(--ink); color:#fff;
 }
@@ -664,6 +685,64 @@ img{ display:block; }
   background:#FBEEDB; color:#8A4A08;
   font-size:13.5px;
 }
+.min-track{
+  height:6px;
+  margin-top:9px;
+  border-radius:999px;
+  background:rgba(138,74,8,.18);
+  overflow:hidden;
+}
+.min-fill{
+  height:100%;
+  border-radius:999px;
+  background:#8A4A08;
+  transition:width .3s ease;
+}
+
+.cross-sell{
+  margin:0 var(--pad) 6px;
+  padding:12px 14px;
+  border-radius:var(--r-sm);
+  background:var(--paper);
+  border:1px dashed var(--hair);
+}
+.cross-sell-prompt{ font-size:13.5px; font-weight:600; margin:0 0 8px; }
+.cross-sell-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.cross-sell-btn{
+  padding:7px 12px;
+  border-radius:999px;
+  border:1.5px solid var(--hair);
+  background:#fff;
+  font-size:12.5px; font-weight:600;
+  color:var(--pepper);
+}
+
+.reorder-banner{
+  width:calc(100% - 2 * var(--pad));
+  max-width:var(--shell); margin:16px auto 0;
+  padding:12px 14px;
+  display:flex; align-items:center; gap:10px;
+  background:var(--card);
+  border:1.5px solid var(--gold);
+  border-radius:var(--r-md);
+}
+.reorder-text{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.reorder-text strong{ font-size:14px; }
+.reorder-text span{ font-size:12.5px; color:var(--muted); }
+.reorder-btn{
+  flex:0 0 auto;
+  padding:9px 16px;
+  border-radius:999px;
+  background:var(--ink); color:#fff;
+  font-size:13px; font-weight:600;
+}
+.reorder-dismiss{
+  flex:0 0 auto;
+  width:26px; height:26px;
+  border-radius:50%;
+  color:var(--muted);
+  font-size:16px;
+}
 
 .totals{
   padding:16px var(--pad);
@@ -1013,6 +1092,55 @@ img{ display:block; }
   font-size:11.5px; font-weight:600;
   color:#C0392B;
 }
+
+/* ---- Menu availability ---- */
+#availSearch{ margin-bottom:12px; }
+.avail-cat{
+  font-size:13px; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.03em;
+  margin:16px 0 6px;
+}
+.avail-cat:first-child{ margin-top:0; }
+.avail-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 0;
+  border-bottom:1px solid var(--hair);
+}
+.avail-row:last-child{ border-bottom:none; }
+.avail-row.is-out .avail-name{ color:var(--muted); text-decoration:line-through; }
+.avail-name{ font-size:13.5px; }
+.avail-toggle{
+  flex:0 0 auto;
+  padding:6px 12px;
+  border-radius:999px;
+  border:1.5px solid var(--hair);
+  background:#fff;
+  font-size:11.5px; font-weight:600;
+  color:var(--ink);
+  white-space:nowrap;
+}
+.avail-row.is-out .avail-toggle{ color:#1FA855; border-color:#1FA855; }
+.avail-toggle:disabled{ color:var(--muted); opacity:.7; }
+
+/* ---- Toast (order-sent confirmation) ---- */
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(90px + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(16px);
+  max-width:calc(100% - 40px);
+  padding:12px 20px;
+  border-radius:999px;
+  background:var(--ink); color:#fff;
+  font-size:13.5px; font-weight:600;
+  text-align:center;
+  box-shadow:0 10px 30px rgba(0,0,0,.32);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;
+  z-index:80;
+}
+.toast.is-visible{ opacity:1; transform:translateX(-50%) translateY(0); }
 
 /* ---- Range tabs ---- */
 .range-tabs{

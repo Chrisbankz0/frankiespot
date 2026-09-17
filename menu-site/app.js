@@ -217,6 +217,23 @@
   /* Every add button on the page, so refresh() can update them in place. */
   const controls = [];
 
+  /* Created early (not just for order-saving further down) since the
+     sold-out check right after the menu builds also needs it.
+     persistSession: false — this page is for anonymous customers only.
+     Without this, a staff member testing both this page and admin.html
+     in the same browser would have their logged-in session picked up
+     here too, which breaks order-saving since staff accounts aren't
+     allowed to CREATE orders, only view and cancel them. */
+  const dbClient =
+    typeof supabase !== "undefined" &&
+    typeof SUPABASE_URL !== "undefined" &&
+    SUPABASE_URL &&
+    SUPABASE_ANON_KEY
+      ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: { persistSession: false },
+        })
+      : null;
+
   /* Builds one card for an item — used both for the regular category
      rows and for the Bestsellers row below, so the two never drift out
      of sync with each other. */
@@ -358,12 +375,61 @@
     menuEl.appendChild(section);
   }
 
+  /* Hero backdrop — reuses the same bestseller photos already chosen
+     above. Each image is loaded independently; one that hasn't been
+     added yet (or fails for any reason) is just silently skipped, so
+     this never risks showing a broken image or an empty gap. */
+  (function setUpHeroBackdrop() {
+    const bgHost = el("mastheadBg");
+    if (!bgHost || !bestsellerItems.length) return;
+
+    const candidates = bestsellerItems.filter((i) => i.image).slice(0, 5);
+    const loaded = [];
+    let rotating = false;
+
+    candidates.forEach((item) => {
+      const img = new Image();
+      img.alt = "";
+      img.onload = () => {
+        loaded.push(img);
+        bgHost.appendChild(img);
+        if (loaded.length === 1) img.classList.add("is-active");
+        if (!rotating && loaded.length >= 2) {
+          rotating = true;
+          let i = 0;
+          setInterval(() => {
+            loaded[i].classList.remove("is-active");
+            i = (i + 1) % loaded.length;
+            loaded[i].classList.add("is-active");
+          }, 4500);
+        }
+      };
+      img.src = item.image;
+    });
+  })();
+
+  /* Guessed from the category name itself, so a renamed or newly added
+     category (like Shawarma) still gets a sensible icon automatically,
+     without needing a manual lookup kept in sync with menu.js. Falls
+     back to a plain plate for anything unrecognised. */
+  function categoryIcon(name) {
+    const n = name.toLowerCase();
+    if (n.includes("rice") || n.includes("spaghetti")) return "🍛";
+    if (n.includes("side")) return "🍟";
+    if (n.includes("protein")) return "🍗";
+    if (n.includes("soup")) return "🍲";
+    if (n.includes("swallow")) return "🥣";
+    if (n.includes("shawarma")) return "🌯";
+    return "🍽️";
+  }
+
   MENU.forEach((group) => {
     const secId = "group-" + slug(group.category);
 
     const pill = document.createElement("button");
     pill.type = "button";
-    pill.textContent = group.category;
+    pill.innerHTML =
+      `<span class="pill-icon" aria-hidden="true">${categoryIcon(group.category)}</span>${esc(group.category)}`;
     pill.dataset.target = secId;
     pill.onclick = () =>
       el(secId).scrollIntoView({ behavior: "smooth", block: "start" });
@@ -671,9 +737,14 @@
     const shortfall = (BUSINESS.minimumOrder || 0) - sub;
     const belowMinimum = cart.size > 0 && shortfall > 0;
 
-    el("noticeSlot").innerHTML = belowMinimum
-      ? `<div class="notice">Add ${money(shortfall)} more to reach the ${money(BUSINESS.minimumOrder)} minimum order.</div>`
-      : "";
+    if (belowMinimum) {
+      const pct = Math.min(100, Math.round((sub / BUSINESS.minimumOrder) * 100));
+      el("noticeSlot").innerHTML =
+        `<div class="notice">Add ${money(shortfall)} more to reach the ${money(BUSINESS.minimumOrder)} minimum order.` +
+        `<div class="min-track"><div class="min-fill" style="width:${pct}%;"></div></div></div>`;
+    } else {
+      el("noticeSlot").innerHTML = "";
+    }
 
     /* Packaging is deliberately left out of every row here — it's a flat
        fee that only ever shows up once the order reaches WhatsApp, see
@@ -692,6 +763,62 @@
 
     el("clearBtn").style.visibility = (cart.size || customNote) ? "visible" : "hidden";
     continueBtn.disabled = (cart.size === 0 && !customNote) || belowMinimum;
+
+    renderCrossSell();
+  }
+
+  /* "You'll probably also want..." — soup without a swallow (or the
+     other way round) is almost always an oversight, not a choice, so
+     this offers the obvious missing half right where the cart is
+     reviewed. Only ever shows one suggestion at a time, to stay a
+     helpful nudge rather than a wall of upsells. */
+  function renderCrossSell() {
+    const slot = el("crossSellSlot");
+    slot.innerHTML = "";
+    if (cart.size === 0) return;
+
+    const categoriesInCart = new Set();
+    cart.forEach((line) => {
+      const entry = searchIndex.find((e) => e.item.name === line.name);
+      if (entry) categoriesInCart.add(entry.category);
+    });
+
+    const pairs = [
+      { have: "Soups", need: "Swallow", prompt: "Got soup — forgot the swallow?" },
+      { have: "Swallow", need: "Soups", prompt: "Got swallow — forgot the soup?" },
+    ];
+
+    for (const pair of pairs) {
+      if (!categoriesInCart.has(pair.have) || categoriesInCart.has(pair.need)) continue;
+      const group = MENU.find((g) => g.category === pair.need);
+      if (!group) continue;
+
+      const box = document.createElement("div");
+      box.className = "cross-sell";
+
+      const prompt = document.createElement("p");
+      prompt.className = "cross-sell-prompt";
+      prompt.textContent = pair.prompt;
+      box.appendChild(prompt);
+
+      const row = document.createElement("div");
+      row.className = "cross-sell-row";
+      group.items
+        .filter((item) => !item.soldOut)
+        .slice(0, 4)
+        .forEach((item) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "cross-sell-btn";
+          btn.textContent = `+ ${item.name} · ${money(item.price)}`;
+          btn.onclick = () => addToCart(item.name, item.name, item.price, item);
+          row.appendChild(btn);
+        });
+      box.appendChild(row);
+
+      slot.appendChild(box);
+      break;
+    }
   }
 
   /* ------------------------------------------------------------------
@@ -746,22 +873,6 @@
      database), the order still goes through exactly as before. Nothing
      here is customer-visible.
      ------------------------------------------------------------------ */
-
-  const dbClient =
-    typeof supabase !== "undefined" &&
-    typeof SUPABASE_URL !== "undefined" &&
-    SUPABASE_URL &&
-    SUPABASE_ANON_KEY
-      ? /* persistSession: false — this page is for anonymous customers
-           only. Without this, a staff member testing both this page and
-           admin.html in the same browser would have their logged-in
-           session picked up here too, which breaks order-saving since
-           staff accounts aren't allowed to CREATE orders, only view and
-           cancel them. */
-        supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-          auth: { persistSession: false },
-        })
-      : null;
 
   let orderSaved = false;
 
@@ -822,6 +933,16 @@
     return { name, phone, address, time };
   }
 
+  let toastTimer = null;
+  function showToast(message) {
+    const toastEl = el("toast");
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.classList.add("is-visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("is-visible"), 3800);
+  }
+
   sendBtn.onclick = () => {
     const details = readDetails();
     if (!details) return;
@@ -829,11 +950,19 @@
     localStorage.setItem("fp_name", details.name);
     localStorage.setItem("fp_phone", details.phone);
     localStorage.setItem("fp_address", details.address);
+    localStorage.setItem(
+      "fp_last_order",
+      JSON.stringify({
+        items: [...cart.values()].map((l) => ({ key: l.key, name: l.name, unit: l.unit, qty: l.qty, item: l.item })),
+        customNote: customNote || null,
+      })
+    );
 
     lastDetails = details;
     saveOrderToDatabase(BUSINESS.whatsapp, details);
     window.open(waLink(BUSINESS.whatsapp, details), "_blank", "noopener");
     if (BUSINESS.whatsappBackup) backupBtn.style.display = "";
+    showToast("Order sent! Check WhatsApp to confirm.");
   };
 
   backupBtn.onclick = () => {
@@ -841,6 +970,7 @@
     if (!details) return;
     saveOrderToDatabase(BUSINESS.whatsappBackup, details);
     window.open(waLink(BUSINESS.whatsappBackup, details), "_blank", "noopener");
+    showToast("Order sent to our other number! Check WhatsApp to confirm.");
   };
 
   /* ------------------------------------------------------------------
@@ -862,6 +992,127 @@
     { rootMargin: "-60px 0px -70% 0px", threshold: 0 }
   );
   document.querySelectorAll(".group").forEach((s) => observer.observe(s));
+
+  /* ------------------------------------------------------------------
+     Live sold-out status
+     menu.js's own soldOut: true still works exactly as before — this
+     is an ADDITIONAL, instant override staff can flip from the
+     dashboard without touching code. Checked once on load; if it fails
+     or is unavailable for any reason, the page just shows whatever
+     menu.js already says, same as always.
+     ------------------------------------------------------------------ */
+
+  function markCardSoldOut(name) {
+    document.querySelectorAll(".card[data-item-name]").forEach((card) => {
+      if (card.dataset.itemName !== name) return;
+      if (card.classList.contains("is-out")) return; // already shown as sold out
+      card.classList.add("is-out");
+      const plus = card.querySelector(".card-plus");
+      if (plus) plus.disabled = true;
+      const media = card.querySelector(".card-media");
+      if (media && !media.querySelector(".card-badge")) {
+        const badge = document.createElement("span");
+        badge.className = "card-badge out";
+        badge.textContent = "Finished";
+        media.appendChild(badge);
+      }
+    });
+  }
+
+  /* "We're busy" banner, and whether Bestsellers is allowed to upgrade
+     itself to real sales data — one read of the same settings row,
+     since both are dashboard-controlled toggles. If the fetch fails or
+     bestsellers_auto isn't there yet (migration not run), it defaults
+     to true — same behavior as before this toggle existed. */
+  if (dbClient) {
+    dbClient
+      .from("site_status")
+      .select("busy, bestsellers_auto")
+      .eq("id", 1)
+      .then(({ data, error }) => {
+        if (error || !data || !data[0]) return;
+        if (data[0].busy) {
+          el("busyBanner").innerHTML =
+            `<div class="busy-banner">Orders may take a little longer than usual right now — we're busy!</div>`;
+        }
+        if (data[0].bestsellers_auto !== false) {
+          upgradeBestsellersFromSales();
+        }
+      });
+  }
+
+  if (dbClient) {
+    dbClient
+      .from("sold_out_items")
+      .select("item_name")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        data.forEach(({ item_name }) => {
+          MENU.forEach((group) => {
+            group.items.forEach((item) => {
+              if (item.name === item_name) item.soldOut = true;
+            });
+          });
+          markCardSoldOut(item_name);
+        });
+      });
+  }
+
+  /* Bestsellers, upgraded from a one-time manual guess (popular: true)
+     to what's actually selling — checked once on load, after the row
+     already shows the manually-tagged items, so there's never a blank
+     gap while this loads. Only swaps in if there's enough real order
+     history to be more trustworthy than a guess; a brand new site with
+     barely any orders yet just keeps showing the manual picks. Staff
+     can also switch this off entirely from the dashboard, regardless
+     of how much order history exists — see the fetch above. */
+  function upgradeBestsellersFromSales() {
+    if (!dbClient) return;
+    dbClient
+      .from("orders")
+      .select("items, status")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+
+        const counts = new Map();
+        data.forEach((o) => {
+          if (o.status === "cancelled") return;
+          (o.items || []).forEach((i) => {
+            counts.set(i.name, (counts.get(i.name) || 0) + Number(i.qty || 0));
+          });
+        });
+        if (counts.size < 3) return; // not enough real data to trust yet
+
+        const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const items = sorted
+          .map(([name]) => {
+            const entry = searchIndex.find((e) => e.item.name === name);
+            return entry ? entry.item : null;
+          })
+          .filter((item) => item && !item.soldOut);
+        if (!items.length) return;
+
+        const section = el("group-bestsellers");
+        if (!section) return;
+        const track = section.querySelector(".track");
+        track.innerHTML = "";
+
+        const startSpacer = document.createElement("div");
+        startSpacer.className = "track-spacer";
+        startSpacer.setAttribute("aria-hidden", "true");
+        track.appendChild(startSpacer);
+
+        items.forEach((item) => track.appendChild(buildCard(item)));
+
+        const endSpacer = document.createElement("div");
+        endSpacer.className = "track-spacer";
+        endSpacer.setAttribute("aria-hidden", "true");
+        track.appendChild(endSpacer);
+
+        const subtitle = section.querySelector(".group-head span");
+        if (subtitle) subtitle.textContent = "Based on real orders";
+      });
+  }
 
   /* ------------------------------------------------------------------
      Search
@@ -973,6 +1224,47 @@
   };
 
   refresh();
+
+  /* Quick reorder — remembered on this device only, no account needed.
+     Only offered when the cart is currently empty, so it never competes
+     with an order someone's already in the middle of building. */
+  (function maybeShowReorderBanner() {
+    if (cart.size > 0) return;
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem("fp_last_order") || "null");
+    } catch {
+      saved = null;
+    }
+    if (!saved || !saved.items || !saved.items.length) return;
+
+    const total = saved.items.reduce((sum, l) => sum + l.unit * l.qty, 0);
+    const count = saved.items.reduce((sum, l) => sum + l.qty, 0);
+
+    const banner = document.createElement("div");
+    banner.className = "reorder-banner";
+    banner.innerHTML =
+      `<div class="reorder-text">` +
+      `<strong>Reorder your last order?</strong>` +
+      `<span>${count} item${count === 1 ? "" : "s"} · ${money(total)}</span>` +
+      `</div>` +
+      `<button type="button" class="reorder-btn">Reorder</button>` +
+      `<button type="button" class="reorder-dismiss" aria-label="Dismiss">×</button>`;
+
+    banner.querySelector(".reorder-btn").onclick = () => {
+      saved.items.forEach((l) => addToCart(l.key, l.name, l.unit, l.item, l.qty));
+      if (saved.customNote) {
+        customNote = saved.customNote;
+        syncCustomOrderUI();
+      }
+      refresh();
+      banner.remove();
+      openSheet();
+    };
+    banner.querySelector(".reorder-dismiss").onclick = () => banner.remove();
+
+    menuEl.parentNode.insertBefore(banner, menuEl);
+  })();
 
   /* First-visit hint: nudge the very first scrollable row sideways
      once, so people notice it scrolls, without being naggy about it on

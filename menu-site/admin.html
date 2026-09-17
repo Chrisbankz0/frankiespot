@@ -46,6 +46,16 @@
     </div>
   </header>
 
+  <label class="busy-toggle-row">
+    <span>Kitchen is busy right now (shows a notice to customers)</span>
+    <input type="checkbox" id="busyToggle" />
+  </label>
+
+  <label class="busy-toggle-row">
+    <span>Bestsellers uses real sales data (off = your manual picks in menu.js)</span>
+    <input type="checkbox" id="bestsellersAutoToggle" />
+  </label>
+
   <section class="repay-card" id="repayCard">
     <div class="repay-head">
       <span class="repay-label">Site development repayment (3% of every order)</span>
@@ -101,6 +111,14 @@
   </div>
 
   <section class="dash-section">
+    <div class="dash-section-head">
+      <h2>Sales trend</h2>
+      <span class="dash-section-note">Last 14 days</span>
+    </div>
+    <div class="trend-chart" id="trendChart"></div>
+  </section>
+
+  <section class="dash-section">
     <h2>Best sellers</h2>
     <ol class="bestsellers" id="bestsellers"></ol>
   </section>
@@ -113,10 +131,20 @@
     <div class="orders-list" id="ordersList"></div>
   </section>
 
+  <section class="dash-section">
+    <div class="dash-section-head">
+      <h2>Menu availability</h2>
+      <span class="dash-section-note">Toggle instantly — no code or redeploy needed.</span>
+    </div>
+    <input type="text" id="availSearch" class="field-input" placeholder="Filter items…" />
+    <div id="menuAvailability"></div>
+  </section>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="menu.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>

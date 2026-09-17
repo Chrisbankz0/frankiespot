@@ -28,6 +28,7 @@
 <body>
 
 <header class="masthead">
+  <div class="masthead-bg" id="mastheadBg" aria-hidden="true"></div>
   <div class="shell">
     <h1 class="brand" id="brandName"></h1>
     <p class="tagline" id="brandTagline"></p>
@@ -106,6 +107,7 @@
   <div id="cartScreen">
     <div class="lines" id="lines"></div>
     <div id="noticeSlot"></div>
+    <div id="crossSellSlot"></div>
     <div class="totals" id="totals"></div>
 
     <div class="sheet-foot">
@@ -172,6 +174,8 @@
 </div>
 
 <!-- menu.js must load first: it defines the data that app.js reads -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="menu.js"></script>

@@ -678,7 +678,7 @@ const MENU = [
     items: [
       {
         name: "Chicken Shawarma (Single Hotdog)",
-        image: "images/shawarma-chicken-regular.jpeg",
+        image: "images/shawarma-chicken-large.jpeg",
         price: 4500,
         description: "Grilled chicken, veg & sauce in flatbread",
         note: "Free coke",

@@ -65,7 +65,37 @@
     el("whoAmI").textContent = "Logged in as " + session.user.email;
     loadOrders();
     loadRepaymentProgress();
+    loadSoldOutStatus();
+    loadTrendChart();
+    loadBusyStatus();
   }
+
+  async function loadBusyStatus() {
+    const { data, error } = await db.from("site_status").select("busy, bestsellers_auto").eq("id", 1);
+    if (error || !data || !data[0]) return;
+    el("busyToggle").checked = !!data[0].busy;
+    /* Defaults to checked (on) if the column isn't there yet — same
+       as the customer site's own default before this toggle existed. */
+    el("bestsellersAutoToggle").checked = data[0].bestsellers_auto !== false;
+  }
+
+  el("busyToggle").addEventListener("change", async (e) => {
+    const busy = e.target.checked;
+    const { error } = await db.from("site_status").update({ busy }).eq("id", 1);
+    if (error) {
+      window.alert("Couldn't update: " + error.message);
+      e.target.checked = !busy; // revert the visual toggle
+    }
+  });
+
+  el("bestsellersAutoToggle").addEventListener("change", async (e) => {
+    const bestsellers_auto = e.target.checked;
+    const { error } = await db.from("site_status").update({ bestsellers_auto }).eq("id", 1);
+    if (error) {
+      window.alert("Couldn't update: " + error.message);
+      e.target.checked = !bestsellers_auto;
+    }
+  });
 
   async function loadRepaymentProgress() {
     /* All-time, no date filter — this is a running total, not tied to
@@ -196,6 +226,7 @@
   el("refreshBtn").onclick = () => {
     loadOrders();
     loadRepaymentProgress();
+    loadTrendChart();
   };
 
   /* Keep the numbers current during a shift without anyone needing to
@@ -204,6 +235,7 @@
     if (dashView.style.display !== "none") {
       loadOrders();
       loadRepaymentProgress();
+      loadTrendChart();
     }
   }, 30000);
 
@@ -393,6 +425,157 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  /* ------------------------------------------------------------------
+     Menu availability — mark a dish sold out (or back in stock)
+     instantly, without touching menu.js or redeploying anything.
+     ------------------------------------------------------------------ */
+
+  let soldOutSet = new Set();
+
+  async function loadSoldOutStatus() {
+    const { data, error } = await db.from("sold_out_items").select("item_name");
+    if (error) {
+      console.error("Couldn't load sold-out status:", error);
+      return;
+    }
+    soldOutSet = new Set((data || []).map((r) => r.item_name));
+    renderMenuAvailability(el("availSearch").value);
+  }
+
+  function renderMenuAvailability(filterText) {
+    const wrap = el("menuAvailability");
+    const q = (filterText || "").trim().toLowerCase();
+    wrap.innerHTML = "";
+
+    if (typeof MENU === "undefined") {
+      wrap.innerHTML = '<p class="dash-empty">menu.js didn\'t load — can\'t list items.</p>';
+      return;
+    }
+
+    MENU.forEach((group) => {
+      const items = q
+        ? group.items.filter((item) => item.name.toLowerCase().includes(q))
+        : group.items;
+      if (!items.length) return;
+
+      const catHead = document.createElement("h3");
+      catHead.className = "avail-cat";
+      catHead.textContent = group.category;
+      wrap.appendChild(catHead);
+
+      items.forEach((item) => {
+        /* soldOut set directly in menu.js can't be undone from here —
+           that's a code-level decision, this toggle is only for the
+           database-level override on top of it. */
+        const hardCoded = !!item.soldOut;
+        const isOut = hardCoded || soldOutSet.has(item.name);
+
+        const row = document.createElement("div");
+        row.className = "avail-row" + (isOut ? " is-out" : "");
+
+        const name = document.createElement("span");
+        name.className = "avail-name";
+        name.textContent = item.name;
+        row.appendChild(name);
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "avail-toggle";
+        if (hardCoded) {
+          btn.textContent = "Set sold out in menu.js";
+          btn.disabled = true;
+        } else {
+          btn.textContent = isOut ? "Mark available" : "Mark sold out";
+          btn.onclick = () => toggleSoldOut(item.name, isOut);
+        }
+        row.appendChild(btn);
+
+        wrap.appendChild(row);
+      });
+    });
+  }
+
+  async function toggleSoldOut(name, currentlyOut) {
+    if (currentlyOut) {
+      const { error } = await db.from("sold_out_items").delete().eq("item_name", name);
+      if (error) {
+        window.alert("Couldn't mark it available: " + error.message);
+        return;
+      }
+    } else {
+      const { error } = await db.from("sold_out_items").insert({ item_name: name });
+      if (error) {
+        window.alert("Couldn't mark it sold out: " + error.message);
+        return;
+      }
+    }
+    loadSoldOutStatus();
+  }
+
+  el("availSearch").addEventListener("input", () => {
+    renderMenuAvailability(el("availSearch").value);
+  });
+
+  /* ------------------------------------------------------------------
+     Sales trend — last 14 calendar days, hand-drawn as plain bars
+     rather than pulling in a charting library for one simple chart.
+     ------------------------------------------------------------------ */
+
+  async function loadTrendChart() {
+    const days = 14;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (days - 1));
+
+    const { data, error } = await db
+      .from("orders")
+      .select("total, status, created_at")
+      .gte("created_at", start.toISOString());
+
+    const wrap = el("trendChart");
+    if (error || !data) {
+      wrap.innerHTML = '<p class="dash-empty">Couldn\'t load the trend chart.</p>';
+      return;
+    }
+
+    /* One bucket per day, oldest to newest, always all 14 days present
+       even if some had zero orders. */
+    const byDay = new Map();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      byDay.set(d.toDateString(), 0);
+    }
+    data.forEach((o) => {
+      if (o.status === "cancelled") return;
+      const key = new Date(o.created_at).toDateString();
+      if (byDay.has(key)) byDay.set(key, byDay.get(key) + Number(o.total || 0));
+    });
+
+    const values = [...byDay.entries()];
+    const max = Math.max(1, ...values.map(([, v]) => v));
+
+    wrap.innerHTML = "";
+    values.forEach(([dateStr, value]) => {
+      const d = new Date(dateStr);
+      const bar = document.createElement("div");
+      bar.className = "trend-bar";
+      bar.title = `${d.toLocaleDateString("en-NG", { day: "numeric", month: "short" })}: ${money(value)}`;
+
+      const fill = document.createElement("div");
+      fill.className = "trend-fill";
+      fill.style.height = Math.max(3, Math.round((value / max) * 100)) + "%";
+      bar.appendChild(fill);
+
+      const label = document.createElement("span");
+      label.className = "trend-label";
+      label.textContent = String(d.getDate());
+      bar.appendChild(label);
+
+      wrap.appendChild(bar);
+    });
   }
 
   checkSession();
