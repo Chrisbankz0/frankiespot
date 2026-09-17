@@ -140,6 +140,43 @@
     <div id="menuAvailability"></div>
   </section>
 
+  <section class="dash-section">
+    <div class="dash-section-head">
+      <h2>Add a menu item</h2>
+      <span class="dash-section-note">Goes live on the site instantly — no code or redeploy needed.</span>
+    </div>
+
+    <form id="addItemForm" class="additem-form">
+      <label class="field-label" for="itemCategory">Category</label>
+      <select id="itemCategory" class="field-input"></select>
+      <input type="text" id="itemNewCategory" class="field-input" placeholder="New category name" style="display:none; margin-top:8px;" />
+
+      <label class="field-label" for="itemName">Name</label>
+      <input type="text" id="itemName" class="field-input" required />
+
+      <label class="field-label" for="itemPrice">Price (₦)</label>
+      <input type="number" id="itemPrice" class="field-input" min="1" required />
+
+      <label class="field-label" for="itemDescription">Description <span class="field-optional">(optional)</span></label>
+      <input type="text" id="itemDescription" class="field-input" placeholder="e.g. Smoky jollof with grilled turkey" />
+
+      <label class="field-label" for="itemNote">Note <span class="field-optional">(optional)</span></label>
+      <input type="text" id="itemNote" class="field-input" placeholder="e.g. Free juice" />
+
+      <label class="field-label" for="itemImageUrl">Photo link <span class="field-optional">(optional)</span></label>
+      <input type="url" id="itemImageUrl" class="field-input" placeholder="Paste a link to a photo, or leave blank" />
+
+      <label class="additem-checkbox">
+        <input type="checkbox" id="itemPopular" /> Mark as Bestseller
+      </label>
+
+      <button type="submit" class="login-btn">Add to menu</button>
+      <p class="additem-error" id="additemError" style="display:none;"></p>
+    </form>
+
+    <div id="customItemsList" class="custom-items-list"></div>
+  </section>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

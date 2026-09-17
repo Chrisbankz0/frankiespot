@@ -68,6 +68,8 @@
     loadSoldOutStatus();
     loadTrendChart();
     loadBusyStatus();
+    populateCategoryDropdown();
+    loadCustomItems();
   }
 
   async function loadBusyStatus() {
@@ -433,14 +435,17 @@
      ------------------------------------------------------------------ */
 
   let soldOutSet = new Set();
+  let archivedSet = new Set();
 
   async function loadSoldOutStatus() {
-    const { data, error } = await db.from("sold_out_items").select("item_name");
-    if (error) {
-      console.error("Couldn't load sold-out status:", error);
-      return;
-    }
-    soldOutSet = new Set((data || []).map((r) => r.item_name));
+    const [soldOutRes, archivedRes] = await Promise.all([
+      db.from("sold_out_items").select("item_name"),
+      db.from("archived_items").select("item_name"),
+    ]);
+    if (soldOutRes.error) console.error("Couldn't load sold-out status:", soldOutRes.error);
+    if (archivedRes.error) console.error("Couldn't load archived status:", archivedRes.error);
+    soldOutSet = new Set((soldOutRes.data || []).map((r) => r.item_name));
+    archivedSet = new Set((archivedRes.data || []).map((r) => r.item_name));
     renderMenuAvailability(el("availSearch").value);
   }
 
@@ -471,27 +476,44 @@
            database-level override on top of it. */
         const hardCoded = !!item.soldOut;
         const isOut = hardCoded || soldOutSet.has(item.name);
+        const isArchived = archivedSet.has(item.name);
 
         const row = document.createElement("div");
-        row.className = "avail-row" + (isOut ? " is-out" : "");
+        row.className =
+          "avail-row" + (isOut ? " is-out" : "") + (isArchived ? " is-archived" : "");
 
         const name = document.createElement("span");
         name.className = "avail-name";
-        name.textContent = item.name;
+        name.textContent = item.name + (isArchived ? " (archived)" : "");
         row.appendChild(name);
 
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "avail-toggle";
-        if (hardCoded) {
-          btn.textContent = "Set sold out in menu.js";
-          btn.disabled = true;
-        } else {
-          btn.textContent = isOut ? "Mark available" : "Mark sold out";
-          btn.onclick = () => toggleSoldOut(item.name, isOut);
-        }
-        row.appendChild(btn);
+        const actions = document.createElement("div");
+        actions.className = "avail-actions";
 
+        /* Sold-out doesn't make sense to offer once something's already
+           archived — it's already fully hidden either way. */
+        if (!isArchived) {
+          const soldOutBtn = document.createElement("button");
+          soldOutBtn.type = "button";
+          soldOutBtn.className = "avail-toggle";
+          if (hardCoded) {
+            soldOutBtn.textContent = "Set sold out in menu.js";
+            soldOutBtn.disabled = true;
+          } else {
+            soldOutBtn.textContent = isOut ? "Mark available" : "Mark sold out";
+            soldOutBtn.onclick = () => toggleSoldOut(item.name, isOut);
+          }
+          actions.appendChild(soldOutBtn);
+        }
+
+        const archiveBtn = document.createElement("button");
+        archiveBtn.type = "button";
+        archiveBtn.className = "avail-toggle avail-archive-btn";
+        archiveBtn.textContent = isArchived ? "Unarchive" : "Archive";
+        archiveBtn.onclick = () => toggleArchive(item.name, isArchived);
+        actions.appendChild(archiveBtn);
+
+        row.appendChild(actions);
         wrap.appendChild(row);
       });
     });
@@ -508,6 +530,30 @@
       const { error } = await db.from("sold_out_items").insert({ item_name: name });
       if (error) {
         window.alert("Couldn't mark it sold out: " + error.message);
+        return;
+      }
+    }
+    loadSoldOutStatus();
+  }
+
+  async function toggleArchive(name, currentlyArchived) {
+    if (currentlyArchived) {
+      const { error } = await db.from("archived_items").delete().eq("item_name", name);
+      if (error) {
+        window.alert("Couldn't unarchive it: " + error.message);
+        return;
+      }
+    } else {
+      if (
+        !window.confirm(
+          `Archive "${name}"? It'll disappear completely from the live menu until you unarchive it.`
+        )
+      ) {
+        return;
+      }
+      const { error } = await db.from("archived_items").insert({ item_name: name });
+      if (error) {
+        window.alert("Couldn't archive it: " + error.message);
         return;
       }
     }
@@ -575,6 +621,124 @@
       bar.appendChild(label);
 
       wrap.appendChild(bar);
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     Add a menu item — writes straight to custom_menu_items, which the
+     site merges into the live menu on its own (see app.js). Existing
+     menu.js items aren't editable from here, only new ones added this
+     way; removing one just deletes its row.
+     ------------------------------------------------------------------ */
+
+  function populateCategoryDropdown() {
+    const sel = el("itemCategory");
+    sel.innerHTML = "";
+    if (typeof MENU !== "undefined") {
+      MENU.forEach((g) => {
+        const opt = document.createElement("option");
+        opt.value = g.category;
+        opt.textContent = g.category;
+        sel.appendChild(opt);
+      });
+    }
+    const otherOpt = document.createElement("option");
+    otherOpt.value = "__new__";
+    otherOpt.textContent = "New category…";
+    sel.appendChild(otherOpt);
+  }
+
+  el("itemCategory").addEventListener("change", () => {
+    el("itemNewCategory").style.display = el("itemCategory").value === "__new__" ? "" : "none";
+  });
+
+  el("addItemForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = el("additemError");
+    errEl.style.display = "none";
+
+    const categorySel = el("itemCategory").value;
+    const category = categorySel === "__new__" ? el("itemNewCategory").value.trim() : categorySel;
+    const name = el("itemName").value.trim();
+    const price = Number(el("itemPrice").value);
+    const description = el("itemDescription").value.trim();
+    const note = el("itemNote").value.trim();
+    const imageUrl = el("itemImageUrl").value.trim();
+    const popular = el("itemPopular").checked;
+
+    if (!category || !name || !price) {
+      errEl.textContent = "Category, name and price are required.";
+      errEl.style.display = "";
+      return;
+    }
+
+    const { error } = await db.from("custom_menu_items").insert({
+      category,
+      name,
+      price,
+      description: description || null,
+      note: note || null,
+      image_url: imageUrl || null,
+      popular,
+      sold_out: false,
+    });
+
+    if (error) {
+      errEl.textContent = "Couldn't add it: " + error.message;
+      errEl.style.display = "";
+      return;
+    }
+
+    el("addItemForm").reset();
+    el("itemNewCategory").style.display = "none";
+    populateCategoryDropdown();
+    loadCustomItems();
+  });
+
+  async function loadCustomItems() {
+    const { data, error } = await db
+      .from("custom_menu_items")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    const wrap = el("customItemsList");
+    if (error) {
+      wrap.innerHTML = '<p class="dash-empty">Couldn\'t load added items.</p>';
+      return;
+    }
+    if (!data || !data.length) {
+      wrap.innerHTML = '<p class="dash-empty">No items added this way yet.</p>';
+      return;
+    }
+
+    wrap.innerHTML = "";
+    data.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "custom-item-row";
+
+      const info = document.createElement("div");
+      info.className = "custom-item-info";
+      info.innerHTML =
+        `<strong>${escapeHtml(row.name)}</strong>` +
+        `<span>${escapeHtml(row.category)} · ${money(row.price)}</span>`;
+      item.appendChild(info);
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "avail-toggle";
+      del.textContent = "Remove";
+      del.onclick = async () => {
+        if (!window.confirm(`Remove "${row.name}" from the menu?`)) return;
+        const { error: delError } = await db.from("custom_menu_items").delete().eq("id", row.id);
+        if (delError) {
+          window.alert("Couldn't remove it: " + delError.message);
+          return;
+        }
+        loadCustomItems();
+      };
+      item.appendChild(del);
+
+      wrap.appendChild(item);
     });
   }
 

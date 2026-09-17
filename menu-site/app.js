@@ -423,6 +423,53 @@
     return "🍽️";
   }
 
+  /* Finds an existing category section by name, or builds a brand-new
+     one (with its own nav pill, wired into the same scroll-spy as
+     everything else) if this is a category that doesn't exist in
+     menu.js at all. Used for items added live from the dashboard. */
+  function ensureCategorySection(categoryName) {
+    const secId = "group-" + slug(categoryName);
+    const existing = document.getElementById(secId);
+    if (existing) return existing;
+
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.innerHTML =
+      `<span class="pill-icon" aria-hidden="true">${categoryIcon(categoryName)}</span>${esc(categoryName)}`;
+    pill.dataset.target = secId;
+    pill.onclick = () => el(secId).scrollIntoView({ behavior: "smooth", block: "start" });
+    navEl.appendChild(pill);
+    pills.push(pill);
+
+    const section = document.createElement("section");
+    section.className = "group";
+    section.id = secId;
+
+    const head = document.createElement("div");
+    head.className = "group-head";
+    head.innerHTML = `<h2>${esc(categoryName)}</h2>`;
+    section.appendChild(head);
+
+    const track = document.createElement("div");
+    track.className = "track";
+    section.appendChild(track);
+
+    const startSpacer = document.createElement("div");
+    startSpacer.className = "track-spacer";
+    startSpacer.setAttribute("aria-hidden", "true");
+    track.appendChild(startSpacer);
+
+    const endSpacer = document.createElement("div");
+    endSpacer.className = "track-spacer";
+    endSpacer.setAttribute("aria-hidden", "true");
+    track.appendChild(endSpacer);
+
+    menuEl.appendChild(section);
+    observer.observe(section);
+
+    return section;
+  }
+
   MENU.forEach((group) => {
     const secId = "group-" + slug(group.category);
 
@@ -1019,6 +1066,18 @@
     });
   }
 
+  /* Archiving is stronger than sold-out: the dish disappears entirely
+     rather than showing greyed out, and it's pulled out of search too.
+     Past orders that reference it are completely untouched — this only
+     changes what's shown on the menu going forward. */
+  function removeItemEverywhere(name) {
+    document.querySelectorAll(".card[data-item-name]").forEach((card) => {
+      if (card.dataset.itemName === name) card.remove();
+    });
+    const idx = searchIndex.findIndex((e) => e.item.name === name);
+    if (idx !== -1) searchIndex.splice(idx, 1);
+  }
+
   /* "We're busy" banner, and whether Bestsellers is allowed to upgrade
      itself to real sales data — one read of the same settings row,
      since both are dashboard-controlled toggles. If the fetch fails or
@@ -1054,6 +1113,48 @@
             });
           });
           markCardSoldOut(item_name);
+        });
+      });
+  }
+
+  if (dbClient) {
+    dbClient
+      .from("archived_items")
+      .select("item_name")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        data.forEach(({ item_name }) => removeItemEverywhere(item_name));
+      });
+  }
+
+  /* Menu items added live from the dashboard — merged in after the
+     static menu.js content is already showing, so there's no delay to
+     the initial page render. Slots into an existing category if the
+     name matches one, or builds a brand-new category section (with its
+     own nav pill) if it doesn't. */
+  if (dbClient) {
+    dbClient
+      .from("custom_menu_items")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        data.forEach((row) => {
+          const item = {
+            name: row.name,
+            price: row.price,
+            description: row.description || undefined,
+            note: row.note || undefined,
+            popular: !!row.popular,
+            soldOut: !!row.sold_out,
+            image: row.image_url || undefined,
+          };
+
+          const section = ensureCategorySection(row.category);
+          const track = section.querySelector(".track");
+          const endSpacer = track.lastElementChild;
+          track.insertBefore(buildCard(item), endSpacer);
+
+          searchIndex.push({ item, category: row.category });
         });
       });
   }

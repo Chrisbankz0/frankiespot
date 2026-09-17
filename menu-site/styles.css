@@ -121,6 +121,17 @@ img{ display:block; }
 }
 .facts strong{ color:#fff; font-weight:600; }
 
+.busy-banner{
+  margin:14px auto 0;
+  max-width:fit-content;
+  padding:8px 16px;
+  border-radius:999px;
+  background:rgba(248,173,21,.16);
+  border:1px solid rgba(248,173,21,.4);
+  color:var(--gold);
+  font-size:12.5px; font-weight:600;
+}
+
 
 /* ---------------------------------------------------------------
    Sticky category nav
@@ -995,6 +1006,17 @@ img{ display:block; }
 .dash-head h1{ font-size:24px; font-weight:700; letter-spacing:-.02em; }
 .dash-who{ color:var(--muted); font-size:13px; margin-top:2px; }
 .dash-head-actions{ flex:0 0 auto; display:flex; gap:8px; }
+
+.busy-toggle-row{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin-top:14px;
+  padding:12px 14px;
+  background:var(--card);
+  border:1px solid var(--hair);
+  border-radius:var(--r-md);
+  font-size:13px; font-weight:600;
+}
+.busy-toggle-row input{ flex:0 0 auto; width:20px; height:20px; accent-color:var(--pepper); }
 .refresh-btn,
 .logout-btn{
   flex:0 0 auto;
@@ -1106,6 +1128,10 @@ img{ display:block; }
   padding:9px 0;
   border-bottom:1px solid var(--hair);
 }
+.avail-row.is-archived .avail-name{ color:var(--muted); font-style:italic; }
+.avail-actions{ display:flex; gap:6px; flex:0 0 auto; }
+.avail-archive-btn{ color:#C0392B; }
+.avail-row.is-archived .avail-archive-btn{ color:#1FA855; border-color:#1FA855; }
 .avail-row:last-child{ border-bottom:none; }
 .avail-row.is-out .avail-name{ color:var(--muted); text-decoration:line-through; }
 .avail-name{ font-size:13.5px; }
@@ -1121,6 +1147,63 @@ img{ display:block; }
 }
 .avail-row.is-out .avail-toggle{ color:#1FA855; border-color:#1FA855; }
 .avail-toggle:disabled{ color:var(--muted); opacity:.7; }
+
+/* ---- Add a menu item ---- */
+.additem-form{ display:flex; flex-direction:column; }
+.additem-form .field-label{ margin-top:14px; }
+.additem-form .field-label:first-of-type{ margin-top:0; }
+.additem-form select.field-input{
+  appearance:none;
+  background:#fff;
+}
+.additem-checkbox{
+  display:flex; align-items:center; gap:8px;
+  margin-top:14px;
+  font-size:13.5px; font-weight:600;
+}
+.additem-checkbox input{ width:18px; height:18px; accent-color:var(--pepper); }
+.additem-form .login-btn{ margin-top:18px; }
+.additem-error{
+  margin:12px 0 0;
+  font-size:13px; color:#C0392B; font-weight:600;
+  text-align:center;
+}
+
+.custom-items-list{ margin-top:18px; }
+.custom-item-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 0;
+  border-bottom:1px solid var(--hair);
+}
+.custom-item-row:last-child{ border-bottom:none; }
+.custom-item-info{ display:flex; flex-direction:column; gap:1px; }
+.custom-item-info strong{ font-size:13.5px; }
+.custom-item-info span{ font-size:12px; color:var(--muted); }
+
+/* ---- Sales trend chart ---- */
+.trend-chart{
+  display:flex; align-items:flex-end; gap:4px;
+  height:120px;
+  padding:10px 4px 0;
+  background:var(--card);
+  border:1px solid var(--hair);
+  border-radius:var(--r-md);
+}
+.trend-bar{
+  flex:1 1 0;
+  height:100%;
+  display:flex; flex-direction:column; justify-content:flex-end; align-items:center;
+  gap:5px;
+  cursor:default;
+}
+.trend-fill{
+  width:100%;
+  max-width:18px;
+  background:var(--pepper);
+  border-radius:3px 3px 0 0;
+  min-height:3px;
+}
+.trend-label{ font-size:9.5px; color:var(--muted); }
 
 /* ---- Toast (order-sent confirmation) ---- */
 .toast{
