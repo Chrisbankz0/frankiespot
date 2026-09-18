@@ -489,7 +489,7 @@ const MENU = [
       {
         name: "Fried plantain",
         image: "images/plantain.png",
-        price: 1300,
+        price: 1500,
         description: "Sweet caramelised fried plantain",
       },
       {
