@@ -641,7 +641,7 @@ const MENU = [
       {
         name: "Ogbono soup",
         image: "images/ogbono.jpg",
-        price: 2000,
+        price: 1500,
         description: "Slimy ogbono seed soup",
       },
     ],

@@ -835,6 +835,11 @@
       { have: "Swallow", need: "Soups", prompt: "Got swallow — forgot the soup?" },
     ];
 
+    const pairsInCart = [
+      { have: "Rice Combos", need: "Protein Combos", prompt: "Got a rice combo — want a protein combo too?" },
+      { have: "Protein Combos", need: "Rice Combos", prompt: "Got a protein combo — want a rice combo too?" },
+    ]
+
     for (const pair of pairs) {
       if (!categoriesInCart.has(pair.have) || categoriesInCart.has(pair.need)) continue;
       const group = MENU.find((g) => g.category === pair.need);
