@@ -538,7 +538,7 @@ const MENU = [
       {
         name: "Egg sauce",
         image: "images/egg-sauce.png",
-        price: 750,
+        price: 1500,
         description: "Scrambled eggs in pepper sauce",
       },
       {
@@ -679,7 +679,7 @@ const MENU = [
       {
         name: "Chicken Shawarma (Single Hotdog)",
         image: "images/shawarma-chicken-large.jpeg",
-        price: 4500,
+        price: 4000,
         description: "Grilled chicken, veg & sauce in flatbread",
         note: "Free coke",
         popular: true,
@@ -687,7 +687,7 @@ const MENU = [
       {
         name: "Chicken Shawarma (Double Hotdog)",
         image: "images/shawarma-chicken-large.jpeg",
-        price: 5500,
+        price: 5000,
         description: "Grilled chicken, veg & sauce in flatbread",
         note: "Free coke",
         popular: true,
