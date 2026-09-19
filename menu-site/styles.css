@@ -1128,6 +1128,10 @@ img{ display:block; }
   padding:9px 0;
   border-bottom:1px solid var(--hair);
 }
+.avail-row{ flex-wrap:wrap; }
+.avail-name{ flex:1 1 140px; }
+.avail-price{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+.avail-price-input{ width:90px; padding:6px 8px; font-size:13px; }
 .avail-row.is-archived .avail-name{ color:var(--muted); font-style:italic; }
 .avail-actions{ display:flex; gap:6px; flex:0 0 auto; }
 .avail-archive-btn{ color:#C0392B; }

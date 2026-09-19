@@ -1122,6 +1122,34 @@
       });
   }
 
+  /* Price changes made from the dashboard. Mutates the shared item
+     objects (so cart, detail view and search all pick up the new price)
+     and rewrites the price text on any cards already drawn. */
+  if (dbClient) {
+    dbClient
+      .from("price_overrides")
+      .select("item_name, price")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        data.forEach(({ item_name, price }) => {
+          MENU.forEach((group) => {
+            group.items.forEach((item) => {
+              if (item.name === item_name && !(item.sizes && item.sizes.length)) {
+                item.price = Number(price);
+              }
+            });
+          });
+          document.querySelectorAll(".card[data-item-name]").forEach((card) => {
+            if (card.dataset.itemName !== item_name) return;
+            const priceEl = card.querySelector(".card-price .price");
+            const wasEl = card.querySelector(".card-price .price-was");
+            if (priceEl && !priceEl.textContent.startsWith("From")) priceEl.textContent = money(Number(price));
+            if (wasEl) wasEl.textContent = money(wasPrice(Number(price)));
+          });
+        });
+      });
+  }
+
   if (dbClient) {
     dbClient
       .from("archived_items")

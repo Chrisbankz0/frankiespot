@@ -437,15 +437,20 @@
   let soldOutSet = new Set();
   let archivedSet = new Set();
 
+  let priceOverrides = new Map(); // item name -> price set from the dashboard
+
   async function loadSoldOutStatus() {
-    const [soldOutRes, archivedRes] = await Promise.all([
+    const [soldOutRes, archivedRes, priceRes] = await Promise.all([
       db.from("sold_out_items").select("item_name"),
       db.from("archived_items").select("item_name"),
+      db.from("price_overrides").select("item_name, price"),
     ]);
     if (soldOutRes.error) console.error("Couldn't load sold-out status:", soldOutRes.error);
     if (archivedRes.error) console.error("Couldn't load archived status:", archivedRes.error);
+    if (priceRes.error) console.error("Couldn't load price overrides:", priceRes.error);
     soldOutSet = new Set((soldOutRes.data || []).map((r) => r.item_name));
     archivedSet = new Set((archivedRes.data || []).map((r) => r.item_name));
+    priceOverrides = new Map((priceRes.data || []).map((r) => [r.item_name, Number(r.price)]));
     renderMenuAvailability(el("availSearch").value);
   }
 
@@ -487,6 +492,42 @@
         name.textContent = item.name + (isArchived ? " (archived)" : "");
         row.appendChild(name);
 
+        /* Price editor — only for plain-priced items (dishes with size
+           options carry a price per size, which isn't editable here). */
+        if (!(item.sizes && item.sizes.length)) {
+          const overridden = priceOverrides.has(item.name);
+          const current = overridden ? priceOverrides.get(item.name) : item.price;
+
+          const priceWrap = document.createElement("div");
+          priceWrap.className = "avail-price";
+
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = "1";
+          input.className = "field-input avail-price-input";
+          input.value = current;
+          input.setAttribute("aria-label", "Price for " + item.name);
+          priceWrap.appendChild(input);
+
+          const saveBtn = document.createElement("button");
+          saveBtn.type = "button";
+          saveBtn.className = "avail-toggle";
+          saveBtn.textContent = "Save price";
+          saveBtn.onclick = () => savePrice(item.name, item.price, Number(input.value));
+          priceWrap.appendChild(saveBtn);
+
+          if (overridden) {
+            const resetBtn = document.createElement("button");
+            resetBtn.type = "button";
+            resetBtn.className = "avail-toggle";
+            resetBtn.textContent = "Reset to " + money(item.price);
+            resetBtn.onclick = () => resetPrice(item.name);
+            priceWrap.appendChild(resetBtn);
+          }
+
+          row.appendChild(priceWrap);
+        }
+
         const actions = document.createElement("div");
         actions.className = "avail-actions";
 
@@ -517,6 +558,32 @@
         wrap.appendChild(row);
       });
     });
+  }
+
+  async function savePrice(name, basePrice, price) {
+    if (!price || price <= 0) {
+      window.alert("Enter a price greater than 0.");
+      return;
+    }
+    /* Back to the menu.js price means no override is needed. */
+    const { error } =
+      price === basePrice
+        ? await db.from("price_overrides").delete().eq("item_name", name)
+        : await db.from("price_overrides").upsert({ item_name: name, price });
+    if (error) {
+      window.alert("Couldn't save the price: " + error.message);
+      return;
+    }
+    loadSoldOutStatus();
+  }
+
+  async function resetPrice(name) {
+    const { error } = await db.from("price_overrides").delete().eq("item_name", name);
+    if (error) {
+      window.alert("Couldn't reset the price: " + error.message);
+      return;
+    }
+    loadSoldOutStatus();
   }
 
   async function toggleSoldOut(name, currentlyOut) {
@@ -592,23 +659,27 @@
     for (let i = 0; i < days; i++) {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
-      byDay.set(d.toDateString(), 0);
+      byDay.set(d.toDateString(), { sales: 0, orders: 0 });
     }
     data.forEach((o) => {
       if (o.status === "cancelled") return;
-      const key = new Date(o.created_at).toDateString();
-      if (byDay.has(key)) byDay.set(key, byDay.get(key) + Number(o.total || 0));
+      const day = byDay.get(new Date(o.created_at).toDateString());
+      if (!day) return;
+      day.sales += Number(o.total || 0);
+      day.orders += 1;
     });
 
     const values = [...byDay.entries()];
-    const max = Math.max(1, ...values.map(([, v]) => v));
+    const max = Math.max(1, ...values.map(([, v]) => v.sales));
 
     wrap.innerHTML = "";
-    values.forEach(([dateStr, value]) => {
+    values.forEach(([dateStr, { sales: value, orders }]) => {
       const d = new Date(dateStr);
       const bar = document.createElement("div");
       bar.className = "trend-bar";
-      bar.title = `${d.toLocaleDateString("en-NG", { day: "numeric", month: "short" })}: ${money(value)}`;
+      bar.title =
+        `${d.toLocaleDateString("en-NG", { day: "numeric", month: "short" })}: ` +
+        `${money(value)} from ${orders} order${orders === 1 ? "" : "s"}`;
 
       const fill = document.createElement("div");
       fill.className = "trend-fill";
@@ -722,6 +793,27 @@
         `<strong>${escapeHtml(row.name)}</strong>` +
         `<span>${escapeHtml(row.category)} · ${money(row.price)}</span>`;
       item.appendChild(info);
+
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "avail-toggle";
+      edit.textContent = "Edit price";
+      edit.onclick = async () => {
+        const input = window.prompt(`New price for "${row.name}" (₦):`, row.price);
+        if (input === null) return;
+        const price = Number(input);
+        if (!price || price <= 0) {
+          window.alert("Enter a price greater than 0.");
+          return;
+        }
+        const { error: upError } = await db.from("custom_menu_items").update({ price }).eq("id", row.id);
+        if (upError) {
+          window.alert("Couldn't update the price: " + upError.message);
+          return;
+        }
+        loadCustomItems();
+      };
+      item.appendChild(edit);
 
       const del = document.createElement("button");
       del.type = "button";
