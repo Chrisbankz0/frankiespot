@@ -349,7 +349,14 @@
      own row right at the top, so a first-time visitor sees the
      highlights immediately instead of having to dig into 60 combo
      items first to find them. No nav pill of its own; it's already
-     the first thing on the page. */
+     the first thing on the page.
+
+     The section itself always exists (just hidden if empty), rather
+     than only being created when there's a hardcoded bestseller —
+     items can also be marked Bestseller later from the dashboard, at
+     any point after this runs (see bestseller_overrides below and
+     addItemToBestsellers), and there needs to be a section already
+     sitting in the right place in the page for those to land in. */
   const bestsellerItems = [];
   MENU.forEach((group) => {
     group.items.forEach((item) => {
@@ -357,33 +364,44 @@
     });
   });
 
-  if (bestsellerItems.length) {
-    const section = document.createElement("section");
-    section.className = "group";
-    section.id = "group-bestsellers";
+  const bestsellersSection = document.createElement("section");
+  bestsellersSection.className = "group";
+  bestsellersSection.id = "group-bestsellers";
+  bestsellersSection.style.display = bestsellerItems.length ? "" : "none";
 
-    const head = document.createElement("div");
-    head.className = "group-head";
-    head.innerHTML = `<h2>Bestsellers</h2><span>What everyone's ordering</span>`;
-    section.appendChild(head);
+  const bestsellersHead = document.createElement("div");
+  bestsellersHead.className = "group-head";
+  bestsellersHead.innerHTML = `<h2>Bestsellers</h2><span>What everyone's ordering</span>`;
+  bestsellersSection.appendChild(bestsellersHead);
 
-    const track = document.createElement("div");
-    track.className = "track";
-    section.appendChild(track);
+  const bestsellersTrack = document.createElement("div");
+  bestsellersTrack.className = "track";
+  bestsellersSection.appendChild(bestsellersTrack);
 
-    const startSpacer = document.createElement("div");
-    startSpacer.className = "track-spacer";
-    startSpacer.setAttribute("aria-hidden", "true");
-    track.appendChild(startSpacer);
+  const bsStartSpacer = document.createElement("div");
+  bsStartSpacer.className = "track-spacer";
+  bsStartSpacer.setAttribute("aria-hidden", "true");
+  bestsellersTrack.appendChild(bsStartSpacer);
 
-    bestsellerItems.forEach((item) => track.appendChild(buildCard(item)));
+  bestsellerItems.forEach((item) => bestsellersTrack.appendChild(buildCard(item)));
 
-    const endSpacer = document.createElement("div");
-    endSpacer.className = "track-spacer";
-    endSpacer.setAttribute("aria-hidden", "true");
-    track.appendChild(endSpacer);
+  const bsEndSpacer = document.createElement("div");
+  bsEndSpacer.className = "track-spacer";
+  bsEndSpacer.setAttribute("aria-hidden", "true");
+  bestsellersTrack.appendChild(bsEndSpacer);
 
-    menuEl.appendChild(section);
+  menuEl.appendChild(bestsellersSection);
+
+  /* Builds a fresh card for `item` and drops it into the Bestsellers
+     row, showing the section if this is the first item to land in it.
+     Used both for items marked Bestseller from the dashboard after
+     load (native items via bestseller_overrides, custom items via
+     their own popular flag) — never for the initial hardcoded ones
+     above, which are already in the row by the time this exists. */
+  function addItemToBestsellers(item) {
+    const endSpacer = bestsellersTrack.lastElementChild;
+    bestsellersTrack.insertBefore(buildCard(item), endSpacer);
+    bestsellersSection.style.display = "";
   }
 
   /* Hero backdrop — reuses the same bestseller photos already chosen
@@ -984,9 +1002,32 @@
         customer_address: details.address,
         preferred_time: details.time || null,
       })
-      .then(({ error }) => {
-        if (error) console.error("Order save failed (order still sent fine):", error);
+      .select("id")
+      .single()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Order save failed (order still sent fine):", error);
+          return;
+        }
+        notifyStaffOfNewOrder(data.id);
       });
+  }
+
+  /* Pings staff who've opted in (dashboard: "Notify me when a new order
+     comes in") — best-effort only. The order is already safely saved by
+     the time this runs, so a failure here (offline, function not
+     deployed yet, etc.) never affects the customer in any way. */
+  function notifyStaffOfNewOrder(orderId) {
+    if (typeof SUPABASE_URL === "undefined" || !SUPABASE_URL) return;
+    fetch(`${SUPABASE_URL}/functions/v1/notify-new-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ order_id: orderId }),
+    }).catch(() => {});
   }
 
   continueBtn.onclick = () => {
@@ -1098,6 +1139,28 @@
     });
   }
 
+  /* Adds the "Bestseller" tag to an item's card wherever it's already
+     shown (its own category row, search results built later) — for
+     when it's marked Bestseller from the dashboard after this card was
+     already built, so the tag wasn't baked into its markup yet. The
+     Bestsellers row itself is handled separately, in addItemToBestsellers. */
+  function markCardAsBestseller(name) {
+    document.querySelectorAll(".card[data-item-name]").forEach((card) => {
+      if (card.dataset.itemName !== name) return;
+      let tagsWrap = card.querySelector(".card-tags");
+      if (!tagsWrap) {
+        tagsWrap = document.createElement("div");
+        tagsWrap.className = "card-tags";
+        card.querySelector(".card-name").insertAdjacentElement("afterend", tagsWrap);
+      }
+      if (tagsWrap.querySelector(".tag:not(.info)")) return; // already tagged
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "Bestseller";
+      tagsWrap.insertBefore(tag, tagsWrap.firstChild);
+    });
+  }
+
   /* Archiving is stronger than sold-out: the dish disappears entirely
      rather than showing greyed out, and it's pulled out of search too.
      Past orders that reference it are completely untouched — this only
@@ -1110,22 +1173,16 @@
     if (idx !== -1) searchIndex.splice(idx, 1);
   }
 
-  /* "We're closed" banner, and whether Bestsellers is allowed to
-     upgrade itself to real sales data — one read of the same settings
-     row, since both are dashboard-controlled toggles. If the fetch
-     fails or bestsellers_auto isn't there yet (migration not run), it
-     defaults to true — same behavior as before this toggle existed.
-
-     The "busy" flag (same checkbox as always on the dashboard) now
-     means the kitchen is fully closed, not just slow: every dish is
-     shown as unavailable, exactly like the sold-out treatment below,
-     and ordering is switched off — customers can still browse the
-     menu, they just can't add anything or check out until it's
-     unchecked again. */
+  /* "We're closed" banner — the "busy" flag (same checkbox as always on
+     the dashboard) means the kitchen is fully closed, not just slow:
+     every dish is shown as unavailable, exactly like the sold-out
+     treatment below, and ordering is switched off — customers can still
+     browse the menu, they just can't add anything or check out until
+     it's unchecked again. */
   if (dbClient) {
     dbClient
       .from("site_status")
-      .select("busy, bestsellers_auto")
+      .select("busy")
       .eq("id", 1)
       .then(({ data, error }) => {
         if (error || !data || !data[0]) return;
@@ -1133,9 +1190,6 @@
           el("busyBanner").innerHTML =
             `<div class="busy-banner is-closed">We're closed right now — check back soon!</div>`;
           closeSiteForOrders();
-        }
-        if (data[0].bestsellers_auto !== false) {
-          upgradeBestsellersFromSales();
         }
       });
   }
@@ -1221,6 +1275,27 @@
       .then(({ data, error }) => {
         if (error || !data) return;
         data.forEach(({ item_name }) => removeItemEverywhere(item_name));
+      });
+  }
+
+  /* Bestseller marked from the dashboard for an item that isn't already
+     popular: true in menu.js — the database-level override, same shape
+     as sold-out/archived above. Skips anything already popular (it's
+     already in the Bestsellers row from the initial build) so it never
+     ends up duplicated there. */
+  if (dbClient) {
+    dbClient
+      .from("bestseller_overrides")
+      .select("item_name")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        data.forEach(({ item_name }) => {
+          const entry = searchIndex.find((e) => e.item.name === item_name);
+          if (!entry || entry.item.popular) return;
+          entry.item.popular = true;
+          markCardAsBestseller(item_name);
+          addItemToBestsellers(entry.item);
+        });
       });
   }
 
@@ -1334,63 +1409,8 @@
           track.insertBefore(buildCard(item), endSpacer);
 
           searchIndex.push({ item, category: row.category });
+          if (item.popular && !item.soldOut) addItemToBestsellers(item);
         });
-      });
-  }
-
-  /* Bestsellers, upgraded from a one-time manual guess (popular: true)
-     to what's actually selling — checked once on load, after the row
-     already shows the manually-tagged items, so there's never a blank
-     gap while this loads. Only swaps in if there's enough real order
-     history to be more trustworthy than a guess; a brand new site with
-     barely any orders yet just keeps showing the manual picks. Staff
-     can also switch this off entirely from the dashboard, regardless
-     of how much order history exists — see the fetch above. */
-  function upgradeBestsellersFromSales() {
-    if (!dbClient) return;
-    dbClient
-      .from("orders")
-      .select("items, status")
-      .then(({ data, error }) => {
-        if (error || !data) return;
-
-        const counts = new Map();
-        data.forEach((o) => {
-          if (o.status === "cancelled") return;
-          (o.items || []).forEach((i) => {
-            counts.set(i.name, (counts.get(i.name) || 0) + Number(i.qty || 0));
-          });
-        });
-        if (counts.size < 3) return; // not enough real data to trust yet
-
-        const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-        const items = sorted
-          .map(([name]) => {
-            const entry = searchIndex.find((e) => e.item.name === name);
-            return entry ? entry.item : null;
-          })
-          .filter((item) => item && !item.soldOut);
-        if (!items.length) return;
-
-        const section = el("group-bestsellers");
-        if (!section) return;
-        const track = section.querySelector(".track");
-        track.innerHTML = "";
-
-        const startSpacer = document.createElement("div");
-        startSpacer.className = "track-spacer";
-        startSpacer.setAttribute("aria-hidden", "true");
-        track.appendChild(startSpacer);
-
-        items.forEach((item) => track.appendChild(buildCard(item)));
-
-        const endSpacer = document.createElement("div");
-        endSpacer.className = "track-spacer";
-        endSpacer.setAttribute("aria-hidden", "true");
-        track.appendChild(endSpacer);
-
-        const subtitle = section.querySelector(".group-head span");
-        if (subtitle) subtitle.textContent = "Based on real orders";
       });
   }
 
@@ -1505,6 +1525,29 @@
   };
 
   refresh();
+
+  /* Auto-closed based on BUSINESS.openHours (menu.js) — no dashboard
+     action needed day to day. Purely local, so it applies instantly on
+     load, before any network request. The dashboard's manual "closed"
+     toggle (checked further down, once the site_status fetch resolves)
+     still works as an override on top of this — e.g. to close early. */
+  function isWithinOpenHours(now) {
+    const oh = BUSINESS.openHours;
+    if (!oh) return true; // not configured — auto-close is off
+    if (oh.days && !oh.days.includes(now.getDay())) return false;
+    const toMinutes = (hhmm) => {
+      const [h, m] = hhmm.split(":").map(Number);
+      return h * 60 + m;
+    };
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    return nowMinutes >= toMinutes(oh.open) && nowMinutes < toMinutes(oh.close);
+  }
+
+  if (!isWithinOpenHours(new Date())) {
+    el("busyBanner").innerHTML =
+      `<div class="busy-banner is-closed">We're closed right now — open ${esc(BUSINESS.hours || "again soon")}.</div>`;
+    closeSiteForOrders();
+  }
 
   /* Quick reorder — remembered on this device only, no account needed.
      Only offered when the cart is currently empty, so it never competes

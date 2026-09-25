@@ -70,15 +70,13 @@
     loadBusyStatus();
     populateCategoryDropdown();
     loadCustomItems();
+    setUpStaffPushOptIn();
   }
 
   async function loadBusyStatus() {
-    const { data, error } = await db.from("site_status").select("busy, bestsellers_auto").eq("id", 1);
+    const { data, error } = await db.from("site_status").select("busy").eq("id", 1);
     if (error || !data || !data[0]) return;
     el("busyToggle").checked = !!data[0].busy;
-    /* Defaults to checked (on) if the column isn't there yet — same
-       as the customer site's own default before this toggle existed. */
-    el("bestsellersAutoToggle").checked = data[0].bestsellers_auto !== false;
   }
 
   el("busyToggle").addEventListener("change", async (e) => {
@@ -87,15 +85,6 @@
     if (error) {
       window.alert("Couldn't update: " + error.message);
       e.target.checked = !busy; // revert the visual toggle
-    }
-  });
-
-  el("bestsellersAutoToggle").addEventListener("change", async (e) => {
-    const bestsellers_auto = e.target.checked;
-    const { error } = await db.from("site_status").update({ bestsellers_auto }).eq("id", 1);
-    if (error) {
-      window.alert("Couldn't update: " + error.message);
-      e.target.checked = !bestsellers_auto;
     }
   });
 
@@ -144,6 +133,82 @@
       btn.textContent = originalText;
     }
   });
+
+  /* ------------------------------------------------------------------
+     Staff push opt-in — "Notify me when a new order comes in". Mirrors
+     the customer-facing opt-in in app.js, but subscribes into
+     staff_push_subscriptions (authenticated-only) instead, and is
+     triggered by every new order rather than by a dashboard button —
+     see notifyStaffOfNewOrder in app.js and the notify-new-order
+     Edge Function.
+     ------------------------------------------------------------------ */
+
+  function setUpStaffPushOptIn() {
+    const btn = el("staffNotifyOptInBtn");
+    if (!btn) return;
+
+    const supported =
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window &&
+      typeof VAPID_PUBLIC_KEY !== "undefined" &&
+      VAPID_PUBLIC_KEY;
+
+    if (
+      !supported ||
+      localStorage.getItem("fp_staff_push_subscribed") === "1" ||
+      Notification.permission === "denied"
+    ) {
+      btn.style.display = "none";
+      return;
+    }
+
+    btn.style.display = "";
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = window.atob(base64);
+      return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    }
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = "Setting up…";
+
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          btn.style.display = "none";
+          return;
+        }
+
+        await navigator.serviceWorker.register("sw.js");
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+
+        const { error } = await db
+          .from("staff_push_subscriptions")
+          .insert({ subscription: subscription.toJSON() });
+        if (error) throw error;
+
+        localStorage.setItem("fp_staff_push_subscribed", "1");
+        btn.textContent = "🔔 You'll be notified";
+        setTimeout(() => {
+          btn.style.display = "none";
+        }, 1500);
+      } catch (err) {
+        console.error("Couldn't set up notifications:", err);
+        btn.disabled = false;
+        btn.textContent = originalText;
+        window.alert("Couldn't turn on notifications — please try again.");
+      }
+    });
+  }
 
   async function loadRepaymentProgress() {
     /* All-time, no date filter — this is a running total, not tied to
@@ -482,6 +547,7 @@
 
   let soldOutSet = new Set();
   let archivedSet = new Set();
+  let bestsellerSet = new Set();
 
   let priceOverrides = new Map(); // item name -> price set from the dashboard
 
@@ -491,17 +557,20 @@
   let customItems = [];
 
   async function loadSoldOutStatus() {
-    const [soldOutRes, archivedRes, priceRes] = await Promise.all([
+    const [soldOutRes, archivedRes, priceRes, bestsellerRes] = await Promise.all([
       db.from("sold_out_items").select("item_name"),
       db.from("archived_items").select("item_name"),
       db.from("price_overrides").select("item_name, price"),
+      db.from("bestseller_overrides").select("item_name"),
     ]);
     if (soldOutRes.error) console.error("Couldn't load sold-out status:", soldOutRes.error);
     if (archivedRes.error) console.error("Couldn't load archived status:", archivedRes.error);
     if (priceRes.error) console.error("Couldn't load price overrides:", priceRes.error);
+    if (bestsellerRes.error) console.error("Couldn't load bestseller overrides:", bestsellerRes.error);
     soldOutSet = new Set((soldOutRes.data || []).map((r) => r.item_name));
     archivedSet = new Set((archivedRes.data || []).map((r) => r.item_name));
     priceOverrides = new Map((priceRes.data || []).map((r) => [r.item_name, Number(r.price)]));
+    bestsellerSet = new Set((bestsellerRes.data || []).map((r) => r.item_name));
     renderMenuAvailability(el("availSearch").value);
   }
 
@@ -578,6 +647,22 @@
     const actions = document.createElement("div");
     actions.className = "avail-actions";
 
+    /* Bestseller set directly in menu.js can't be undone from here,
+       same reasoning as the sold-out flag above. */
+    const hardCodedBestseller = !!item.popular;
+    const isBestseller = hardCodedBestseller || bestsellerSet.has(item.name);
+    const bestsellerBtn = document.createElement("button");
+    bestsellerBtn.type = "button";
+    bestsellerBtn.className = "avail-toggle";
+    if (hardCodedBestseller) {
+      bestsellerBtn.textContent = "Bestseller in menu.js";
+      bestsellerBtn.disabled = true;
+    } else {
+      bestsellerBtn.textContent = isBestseller ? "Remove from Bestsellers" : "Mark as Bestseller";
+      bestsellerBtn.onclick = () => toggleBestseller(item.name, isBestseller);
+    }
+    actions.appendChild(bestsellerBtn);
+
     /* Sold-out doesn't make sense to offer once something's already
        archived — it's already fully hidden either way. */
     if (!isArchived) {
@@ -627,6 +712,14 @@
 
     const actions = document.createElement("div");
     actions.className = "avail-actions";
+
+    const isBestseller = !!row.popular;
+    const bestsellerBtn = document.createElement("button");
+    bestsellerBtn.type = "button";
+    bestsellerBtn.className = "avail-toggle";
+    bestsellerBtn.textContent = isBestseller ? "Remove from Bestsellers" : "Mark as Bestseller";
+    bestsellerBtn.onclick = () => toggleCustomBestseller(row, isBestseller);
+    actions.appendChild(bestsellerBtn);
 
     const soldOutBtn = document.createElement("button");
     soldOutBtn.type = "button";
@@ -745,6 +838,35 @@
     }
     populateCategoryDropdown();
     loadCustomItems();
+  }
+
+  async function toggleCustomBestseller(row, currentlyOn) {
+    const { error } = await db
+      .from("custom_menu_items")
+      .update({ popular: !currentlyOn })
+      .eq("id", row.id);
+    if (error) {
+      window.alert("Couldn't update it: " + error.message);
+      return;
+    }
+    loadCustomItems();
+  }
+
+  async function toggleBestseller(name, currentlyOn) {
+    if (currentlyOn) {
+      const { error } = await db.from("bestseller_overrides").delete().eq("item_name", name);
+      if (error) {
+        window.alert("Couldn't remove it from Bestsellers: " + error.message);
+        return;
+      }
+    } else {
+      const { error } = await db.from("bestseller_overrides").insert({ item_name: name });
+      if (error) {
+        window.alert("Couldn't mark it as a Bestseller: " + error.message);
+        return;
+      }
+    }
+    loadSoldOutStatus();
   }
 
   async function toggleSoldOut(name, currentlyOut) {
@@ -884,6 +1006,29 @@
     el("itemNewCategory").style.display = el("itemCategory").value === "__new__" ? "" : "none";
   });
 
+  /* Uploads a chosen photo to the menu-photos storage bucket and
+     returns its public URL, or null if no file was chosen. Errors bubble
+     up to the caller rather than being handled here, since "couldn't
+     upload the photo" and "couldn't save the item" show the same way
+     to staff — one error message, either way. */
+  async function uploadItemPhoto(file) {
+    if (!file) return null;
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const safeName = file.name
+      .replace(/\.[^.]+$/, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40);
+    const path = `${Date.now()}-${safeName || "photo"}.${ext}`;
+
+    const { error } = await db.storage.from("menu-photos").upload(path, file);
+    if (error) throw error;
+
+    const { data } = db.storage.from("menu-photos").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
   el("addItemForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const errEl = el("additemError");
@@ -895,13 +1040,31 @@
     const price = Number(el("itemPrice").value);
     const description = el("itemDescription").value.trim();
     const note = el("itemNote").value.trim();
-    const imageUrl = el("itemImageUrl").value.trim();
+    const imageFile = el("itemImageFile").files[0] || null;
+    const imageUrlTyped = el("itemImageUrl").value.trim();
     const popular = el("itemPopular").checked;
 
     if (!category || !name || !price) {
       errEl.textContent = "Category, name and price are required.";
       errEl.style.display = "";
       return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = imageFile ? "Uploading photo…" : "Adding…";
+
+    let imageUrl = imageUrlTyped;
+    if (imageFile) {
+      try {
+        imageUrl = await uploadItemPhoto(imageFile);
+      } catch (uploadError) {
+        errEl.textContent = "Couldn't upload the photo: " + uploadError.message;
+        errEl.style.display = "";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Add to menu";
+        return;
+      }
     }
 
     const { error } = await db.from("custom_menu_items").insert({
@@ -914,6 +1077,9 @@
       popular,
       sold_out: false,
     });
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Add to menu";
 
     if (error) {
       errEl.textContent = "Couldn't add it: " + error.message;

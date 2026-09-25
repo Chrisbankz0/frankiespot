@@ -16,12 +16,20 @@
  * @property {string}  whatsapp     Country code first, no plus, no spaces, no leading zero.
  * @property {string}  [whatsappBackup]  Optional second number, offered only after the main Send is tapped.
  * @property {string}  [areas]      Delivery areas, written out.
- * @property {string}  [hours]      Opening days and times.
+ * @property {string}  [hours]      Opening days and times, shown as plain text.
+ * @property {OpenHours|null} [openHours]  Structured version of `hours`, used to auto-close the site outside these times. null turns auto-close off.
  * @property {string}  [instagram]  Handle including the @. Empty string hides it.
  * @property {string}  [orderNotice] Short notice, e.g. lead time.
  * @property {number|null} deliveryFee  Flat fee, or null to agree it in chat.
  * @property {number}  [packagingFee]  Flat pack/nylon fee per order. WhatsApp-message only, never shown on the page itself.
  * @property {number}  minimumOrder Minimum spend before delivery. 0 turns it off.
+ */
+
+/**
+ * @typedef {Object} OpenHours
+ * @property {number[]} days   Weekday numbers you're OPEN: Sun=0 … Sat=6.
+ * @property {string}   open   24-hour "HH:MM", local time.
+ * @property {string}   close  24-hour "HH:MM", local time.
  */
 
 /**

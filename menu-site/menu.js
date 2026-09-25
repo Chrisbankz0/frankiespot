@@ -41,6 +41,24 @@ const BUSINESS = {
   hours: "Tuesday to Sunday, 9am to 3pm", // CHECK ME — real opening times
   instagram: "",                           // e.g. "@frankiespot", "" hides it
 
+  /* Structured version of `hours` above — lets the site automatically
+     show itself as closed outside these times, with no dashboard action
+     needed each day. The dashboard's manual "We're closed right now"
+     toggle still works on top of this, e.g. to close early for the day.
+     CHECK ME — must actually match `hours` above, or the closed message
+     and the real schedule will disagree.
+
+     days: which days you're OPEN, as weekday numbers — Sun=0, Mon=1,
+     Tue=2, Wed=3, Thu=4, Fri=5, Sat=6. open/close: 24-hour "HH:MM", in
+     your own local time (no timezone conversion is done).
+     Set openHours to null to turn this off entirely (only the manual
+     dashboard toggle would control closing, like before this existed). */
+  openHours: {
+    days: [0, 2, 3, 4, 5, 6], // every day except Monday(1)
+    open: "09:00",
+    close: "15:00",
+  },
+
   /* The old price list said every plate came with water — the new one
      doesn't repeat that, it only calls out free juice on specific combos
      (tagged with note: "Free juice" on those items below). Put a general

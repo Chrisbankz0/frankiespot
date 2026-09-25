@@ -51,14 +51,14 @@
     <input type="checkbox" id="busyToggle" />
   </label>
 
-  <label class="busy-toggle-row">
-    <span>Bestsellers uses real sales data (off = your manual picks in menu.js)</span>
-    <input type="checkbox" id="bestsellersAutoToggle" />
-  </label>
-
   <div class="busy-toggle-row">
     <span>Push a notification to everyone who opted in for "we're open" alerts</span>
     <button type="button" id="notifyOpenBtn" class="refresh-btn">Notify customers we're open</button>
+  </div>
+
+  <div class="busy-toggle-row">
+    <span>Get a notification on this device the moment a new order comes in</span>
+    <button type="button" id="staffNotifyOptInBtn" class="refresh-btn" style="display:none;">🔔 Notify me</button>
   </div>
 
   <section class="repay-card" id="repayCard">
@@ -168,7 +168,9 @@
       <label class="field-label" for="itemNote">Note <span class="field-optional">(optional)</span></label>
       <input type="text" id="itemNote" class="field-input" placeholder="e.g. Free juice" />
 
-      <label class="field-label" for="itemImageUrl">Photo link <span class="field-optional">(optional)</span></label>
+      <label class="field-label" for="itemImageFile">Photo <span class="field-optional">(optional)</span></label>
+      <input type="file" id="itemImageFile" class="field-input" accept="image/*" />
+      <p class="additem-hint">Or paste a link instead, if the photo's already hosted somewhere:</p>
       <input type="url" id="itemImageUrl" class="field-input" placeholder="Paste a link to a photo, or leave blank" />
 
       <label class="additem-checkbox">
