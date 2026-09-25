@@ -1006,6 +1006,52 @@
     el("itemNewCategory").style.display = el("itemCategory").value === "__new__" ? "" : "none";
   });
 
+  /* Shrinks a photo in the browser before it ever leaves the device —
+     a phone photo straight off the camera can be 5-15MB, and every one
+     of those gets downloaded in full by every customer who opens the
+     menu. Scales down to a sensible max size and re-encodes as a
+     compressed JPEG, which for a food photo is usually a 90%+ size
+     cut with no visible quality loss on a phone screen.
+
+     Falls back to the original file untouched if anything about this
+     goes wrong (unsupported format, decoding failure, etc.) — a bigger
+     photo making it through beats blocking the upload entirely. */
+  function resizeImagePhoto(file, maxDimension, quality) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+
+        const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        /* JPEG has no transparency — without this, a transparent PNG
+           would turn black instead of white where it used to be clear. */
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+
+        canvas.toBlob(
+          (blob) => resolve(blob || file),
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file); // not a format the browser can decode — upload as-is
+      };
+      img.src = objectUrl;
+    });
+  }
+
   /* Uploads a chosen photo to the menu-photos storage bucket and
      returns its public URL, or null if no file was chosen. Errors bubble
      up to the caller rather than being handled here, since "couldn't
@@ -1013,16 +1059,23 @@
      to staff — one error message, either way. */
   async function uploadItemPhoto(file) {
     if (!file) return null;
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+
+    const resized = await resizeImagePhoto(file, 1600, 0.82);
     const safeName = file.name
       .replace(/\.[^.]+$/, "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
       .slice(0, 40);
-    const path = `${Date.now()}-${safeName || "photo"}.${ext}`;
+    /* Always .jpg now — resizeImagePhoto re-encodes as JPEG whenever it
+       succeeds, and on the rare fallback-to-original path a wrong
+       extension on a perfectly valid image file doesn't actually break
+       anything (the browser renders by content, not by URL suffix). */
+    const path = `${Date.now()}-${safeName || "photo"}.jpg`;
 
-    const { error } = await db.storage.from("menu-photos").upload(path, file);
+    const { error } = await db.storage.from("menu-photos").upload(path, resized, {
+      contentType: "image/jpeg",
+    });
     if (error) throw error;
 
     const { data } = db.storage.from("menu-photos").getPublicUrl(path);
