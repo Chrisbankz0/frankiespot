@@ -234,6 +234,13 @@
         })
       : null;
 
+  /* Whether staff have marked the kitchen fully closed from the
+     dashboard — set (once, asynchronously) further down once the
+     site_status fetch resolves. Declared up here, ahead of buildCard,
+     since buildCard reads it every time a card is made, including the
+     ones built synchronously below before that fetch ever completes. */
+  let siteClosed = false;
+
   /* Builds one card for an item — used both for the regular category
      rows and for the Bestsellers row below, so the two never drift out
      of sync with each other. */
@@ -250,6 +257,10 @@
     const photoBtn = document.createElement("button");
     photoBtn.type = "button";
     photoBtn.className = "card-photo-btn";
+    /* While the kitchen's fully closed, even opening the detail view is
+       switched off — not just adding to cart — so there's nothing left
+       to tap at all, not just nothing to buy. */
+    photoBtn.disabled = siteClosed;
     photoBtn.setAttribute("aria-label", "See details for " + item.name);
     photoBtn.onclick = () => openDetail(item);
     photoBtn.appendChild(thumbnail(item));
@@ -413,7 +424,10 @@
      without needing a manual lookup kept in sync with menu.js. Falls
      back to a plain plate for anything unrecognised. */
   function categoryIcon(name) {
-    const n = name.toLowerCase();
+    /* Spaces stripped too — staff might type "Break Fast" as two words,
+       and this still needs to match "breakfast". */
+    const n = name.toLowerCase().replace(/\s+/g, "");
+    if (n.includes("breakfast")) return "🍳";
     if (n.includes("rice") || n.includes("spaghetti")) return "🍛";
     if (n.includes("side")) return "🍟";
     if (n.includes("protein")) return "🍗";
@@ -427,10 +441,21 @@
      one (with its own nav pill, wired into the same scroll-spy as
      everything else) if this is a category that doesn't exist in
      menu.js at all. Used for items added live from the dashboard. */
+  /* Categories that should lead the page, ahead of even Bestsellers,
+     rather than landing wherever they happen to load in (custom
+     categories from the dashboard normally land at the end — see
+     below). Matched case- and space-insensitively, since staff might
+     type "Breakfast" or "Break Fast" — both need to count. */
+  const LEAD_CATEGORIES = ["breakfast"];
+
   function ensureCategorySection(categoryName) {
     const secId = "group-" + slug(categoryName);
     const existing = document.getElementById(secId);
     if (existing) return existing;
+
+    const isLead = LEAD_CATEGORIES.includes(
+      categoryName.trim().toLowerCase().replace(/\s+/g, "")
+    );
 
     const pill = document.createElement("button");
     pill.type = "button";
@@ -438,7 +463,8 @@
       `<span class="pill-icon" aria-hidden="true">${categoryIcon(categoryName)}</span>${esc(categoryName)}`;
     pill.dataset.target = secId;
     pill.onclick = () => el(secId).scrollIntoView({ behavior: "smooth", block: "start" });
-    navEl.appendChild(pill);
+    if (isLead) navEl.insertBefore(pill, navEl.firstChild);
+    else navEl.appendChild(pill);
     pills.push(pill);
 
     const section = document.createElement("section");
@@ -464,7 +490,8 @@
     endSpacer.setAttribute("aria-hidden", "true");
     track.appendChild(endSpacer);
 
-    menuEl.appendChild(section);
+    if (isLead) menuEl.insertBefore(section, menuEl.firstChild);
+    else menuEl.appendChild(section);
     observer.observe(section);
 
     return section;
@@ -1083,11 +1110,18 @@
     if (idx !== -1) searchIndex.splice(idx, 1);
   }
 
-  /* "We're busy" banner, and whether Bestsellers is allowed to upgrade
-     itself to real sales data — one read of the same settings row,
-     since both are dashboard-controlled toggles. If the fetch fails or
-     bestsellers_auto isn't there yet (migration not run), it defaults
-     to true — same behavior as before this toggle existed. */
+  /* "We're closed" banner, and whether Bestsellers is allowed to
+     upgrade itself to real sales data — one read of the same settings
+     row, since both are dashboard-controlled toggles. If the fetch
+     fails or bestsellers_auto isn't there yet (migration not run), it
+     defaults to true — same behavior as before this toggle existed.
+
+     The "busy" flag (same checkbox as always on the dashboard) now
+     means the kitchen is fully closed, not just slow: every dish is
+     shown as unavailable, exactly like the sold-out treatment below,
+     and ordering is switched off — customers can still browse the
+     menu, they just can't add anything or check out until it's
+     unchecked again. */
   if (dbClient) {
     dbClient
       .from("site_status")
@@ -1097,12 +1131,42 @@
         if (error || !data || !data[0]) return;
         if (data[0].busy) {
           el("busyBanner").innerHTML =
-            `<div class="busy-banner">Orders may take a little longer than usual right now — we're busy!</div>`;
+            `<div class="busy-banner is-closed">We're closed right now — check back soon!</div>`;
+          closeSiteForOrders();
         }
         if (data[0].bestsellers_auto !== false) {
           upgradeBestsellersFromSales();
         }
       });
+  }
+
+  /* Locks the whole site down to browsing-only: marks every dish
+     unavailable (reusing the same sold-out visuals as the per-item
+     toggle), disables every card and search-result photo/name button
+     so nothing opens the detail view either, switches off the custom
+     order box and the floating cart button, and clears the "reorder
+     your last order" banner if it's showing. Runs once, when the
+     dashboard's "closed" flag comes back true. Items added later from
+     custom_menu_items and search rows built later both check
+     `siteClosed` themselves (see below and buildCard/renderSearchResults)
+     since they may not exist yet at this point. */
+  function closeSiteForOrders() {
+    siteClosed = true;
+    searchIndex.forEach(({ item }) => {
+      item.soldOut = true;
+      markCardSoldOut(item.name);
+    });
+    document.querySelectorAll(".card-photo-btn").forEach((btn) => {
+      btn.disabled = true;
+    });
+    const fab = el("barBtn");
+    if (fab) fab.style.display = "none";
+    customAddBtn.disabled = true;
+    customText.disabled = true;
+    customHint.textContent = "We're closed right now — custom orders aren't available.";
+    customHint.style.display = "";
+    const reorderBanner = document.querySelector(".reorder-banner");
+    if (reorderBanner) reorderBanner.remove();
   }
 
   if (dbClient) {
@@ -1160,6 +1224,88 @@
       });
   }
 
+  /* ------------------------------------------------------------------
+     Push notification opt-in — "🔔 Notify me when you're open". Lets a
+     customer who isn't currently on the site get a real push
+     notification once staff hit "Notify customers we're open" on the
+     dashboard. See sw.js for the receiving end and
+     supabase/functions/notify-open for the sending end.
+     ------------------------------------------------------------------ */
+
+  (function setUpPushOptIn() {
+    const btn = el("notifyOptInBtn");
+    if (!btn) return;
+
+    const supported =
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window &&
+      typeof VAPID_PUBLIC_KEY !== "undefined" &&
+      VAPID_PUBLIC_KEY &&
+      !!dbClient;
+
+    /* Already subscribed on this browser, or the browser can't do this,
+       or the customer already said no at the OS/browser level — in any
+       of those cases there's nothing useful the banner can offer, so it
+       just never shows rather than nagging on every visit. */
+    if (
+      !supported ||
+      localStorage.getItem("pushSubscribed") === "1" ||
+      Notification.permission === "denied"
+    ) {
+      return;
+    }
+
+    btn.style.display = "";
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = window.atob(base64);
+      return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    }
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = "Setting up…";
+
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          btn.style.display = "none"; // they said no — don't ask again this session
+          return;
+        }
+
+        /* register() can resolve before the worker is actually active —
+           subscribing against it too early throws "no active Service
+           Worker". navigator.serviceWorker.ready waits for that. */
+        await navigator.serviceWorker.register("sw.js");
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+
+        const { error } = await dbClient
+          .from("push_subscriptions")
+          .insert({ subscription: subscription.toJSON() });
+        if (error) throw error;
+
+        localStorage.setItem("pushSubscribed", "1");
+        btn.textContent = "🔔 You'll be notified";
+        setTimeout(() => {
+          btn.style.display = "none";
+        }, 1500);
+      } catch (err) {
+        console.error("Couldn't set up notifications:", err);
+        btn.disabled = false;
+        btn.textContent = originalText;
+        window.alert("Couldn't turn on notifications — please try again.");
+      }
+    });
+  })();
+
   /* Menu items added live from the dashboard — merged in after the
      static menu.js content is already showing, so there's no delay to
      the initial page render. Slots into an existing category if the
@@ -1178,7 +1324,7 @@
             description: row.description || undefined,
             note: row.note || undefined,
             popular: !!row.popular,
-            soldOut: !!row.sold_out,
+            soldOut: !!row.sold_out || siteClosed,
             image: row.image_url || undefined,
           };
 
@@ -1302,6 +1448,7 @@
       const tap = document.createElement("button");
       tap.type = "button";
       tap.className = "search-row-tap";
+      tap.disabled = siteClosed; // same lockdown as the regular cards
       tap.setAttribute("aria-label", "See details for " + item.name);
       tap.onclick = () => openDetail(item);
       tap.appendChild(thumbnail(item));
@@ -1363,7 +1510,7 @@
      Only offered when the cart is currently empty, so it never competes
      with an order someone's already in the middle of building. */
   (function maybeShowReorderBanner() {
-    if (cart.size > 0) return;
+    if (cart.size > 0 || siteClosed) return;
     let saved;
     try {
       saved = JSON.parse(localStorage.getItem("fp_last_order") || "null");

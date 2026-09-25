@@ -131,6 +131,32 @@ img{ display:block; }
   color:var(--gold);
   font-size:12.5px; font-weight:600;
 }
+/* "Kitchen closed" — stronger than the plain busy pill above, since
+   this means no ordering at all, not just a slower wait. */
+.busy-banner.is-closed{
+  background:rgba(197,58,44,.18);
+  border-color:rgba(197,58,44,.5);
+  color:#F0AA9E;
+}
+
+/* Opt-in for push notifications ("Notify me when you're open"). Styled
+   as an inviting pill, same shape as .busy-banner, but interactive. */
+.notify-banner{
+  display:block;
+  margin:14px auto 0;
+  max-width:fit-content;
+  padding:9px 18px;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.28);
+  color:#fff;
+  font-size:12.5px; font-weight:600;
+  transition:background .15s ease, border-color .15s ease;
+}
+.notify-banner:hover{
+  background:rgba(255,255,255,.14);
+  border-color:rgba(255,255,255,.4);
+}
 
 
 /* ---------------------------------------------------------------
@@ -311,6 +337,8 @@ img{ display:block; }
 }
 .card-media .thumb{ width:100%; height:100%; border-radius:0; }
 .card-photo-btn:active .thumb{ transform:scale(.97); }
+.card-photo-btn:disabled,
+.search-row-tap:disabled{ cursor:not-allowed; }
 
 .card-badge{
   position:absolute; top:8px; left:8px; z-index:2;

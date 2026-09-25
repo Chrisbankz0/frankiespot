@@ -99,6 +99,52 @@
     }
   });
 
+  el("notifyOpenBtn").addEventListener("click", async () => {
+    if (
+      !window.confirm(
+        "Send a push notification to everyone who opted in for \"we're open\" alerts?"
+      )
+    ) {
+      return;
+    }
+
+    const btn = el("notifyOpenBtn");
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = "Sending…";
+
+    try {
+      const { data: sessionData } = await db.auth.getSession();
+      const accessToken = sessionData.session && sessionData.session.access_token;
+      if (!accessToken) {
+        window.alert("You're not logged in — please refresh and log in again.");
+        return;
+      }
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/notify-open`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          apikey: SUPABASE_ANON_KEY,
+          "Content-Type": "application/json",
+        },
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        window.alert("Couldn't send notifications: " + (result.error || res.statusText));
+        return;
+      }
+
+      window.alert(`Notified ${result.sent} customer${result.sent === 1 ? "" : "s"}.`);
+    } catch (err) {
+      window.alert("Couldn't send notifications: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
   async function loadRepaymentProgress() {
     /* All-time, no date filter — this is a running total, not tied to
        the Today/Week/Month view above it. */
@@ -439,6 +485,11 @@
 
   let priceOverrides = new Map(); // item name -> price set from the dashboard
 
+  /* Items added from the "Add a menu item" form below, merged into
+     Menu availability under their own category rather than kept in a
+     separate list — see buildCustomRow / renderMenuAvailability. */
+  let customItems = [];
+
   async function loadSoldOutStatus() {
     const [soldOutRes, archivedRes, priceRes] = await Promise.all([
       db.from("sold_out_items").select("item_name"),
@@ -454,6 +505,147 @@
     renderMenuAvailability(el("availSearch").value);
   }
 
+  function sameCategory(a, b) {
+    return a.trim().toLowerCase() === b.trim().toLowerCase();
+  }
+
+  /* Shared price-input-plus-buttons control, used by both native
+     menu.js rows and dashboard-added rows — only what happens on save
+     (and whether there's a "reset" option) differs between the two. */
+  function buildPriceEditor(itemName, currentPrice, onSave, resetTo) {
+    const priceWrap = document.createElement("div");
+    priceWrap.className = "avail-price";
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "1";
+    input.className = "field-input avail-price-input";
+    input.value = currentPrice;
+    input.setAttribute("aria-label", "Price for " + itemName);
+    priceWrap.appendChild(input);
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "avail-toggle";
+    saveBtn.textContent = "Save price";
+    saveBtn.onclick = () => onSave(Number(input.value));
+    priceWrap.appendChild(saveBtn);
+
+    if (resetTo != null) {
+      const resetBtn = document.createElement("button");
+      resetBtn.type = "button";
+      resetBtn.className = "avail-toggle";
+      resetBtn.textContent = "Reset to " + money(resetTo);
+      resetBtn.onclick = () => savePrice(itemName, resetTo, resetTo);
+      priceWrap.appendChild(resetBtn);
+    }
+
+    return priceWrap;
+  }
+
+  function buildNativeRow(item) {
+    /* soldOut set directly in menu.js can't be undone from here —
+       that's a code-level decision, this toggle is only for the
+       database-level override on top of it. */
+    const hardCoded = !!item.soldOut;
+    const isOut = hardCoded || soldOutSet.has(item.name);
+    const isArchived = archivedSet.has(item.name);
+
+    const row = document.createElement("div");
+    row.className =
+      "avail-row" + (isOut ? " is-out" : "") + (isArchived ? " is-archived" : "");
+
+    const name = document.createElement("span");
+    name.className = "avail-name";
+    name.textContent = item.name + (isArchived ? " (archived)" : "");
+    row.appendChild(name);
+
+    /* Price editor — only for plain-priced items (dishes with size
+       options carry a price per size, which isn't editable here). */
+    if (!(item.sizes && item.sizes.length)) {
+      const overridden = priceOverrides.has(item.name);
+      const current = overridden ? priceOverrides.get(item.name) : item.price;
+      row.appendChild(
+        buildPriceEditor(
+          item.name,
+          current,
+          (price) => savePrice(item.name, item.price, price),
+          overridden ? item.price : null
+        )
+      );
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "avail-actions";
+
+    /* Sold-out doesn't make sense to offer once something's already
+       archived — it's already fully hidden either way. */
+    if (!isArchived) {
+      const soldOutBtn = document.createElement("button");
+      soldOutBtn.type = "button";
+      soldOutBtn.className = "avail-toggle";
+      if (hardCoded) {
+        soldOutBtn.textContent = "Set sold out in menu.js";
+        soldOutBtn.disabled = true;
+      } else {
+        soldOutBtn.textContent = isOut ? "Mark available" : "Mark sold out";
+        soldOutBtn.onclick = () => toggleSoldOut(item.name, isOut);
+      }
+      actions.appendChild(soldOutBtn);
+    }
+
+    const archiveBtn = document.createElement("button");
+    archiveBtn.type = "button";
+    archiveBtn.className = "avail-toggle avail-archive-btn";
+    archiveBtn.textContent = isArchived ? "Unarchive" : "Archive";
+    archiveBtn.onclick = () => toggleArchive(item.name, isArchived);
+    actions.appendChild(archiveBtn);
+
+    row.appendChild(actions);
+    return row;
+  }
+
+  /* A row for an item added via "Add a menu item" below. Its sold-out
+     flag and price live directly on its own custom_menu_items row
+     (there's no menu.js copy to fall back to), and "Remove" replaces
+     Archive since deleting it outright is meaningful here in a way it
+     isn't for a hardcoded item. */
+  function buildCustomRow(row) {
+    const isOut = !!row.sold_out;
+
+    const el = document.createElement("div");
+    el.className = "avail-row" + (isOut ? " is-out" : "");
+
+    const name = document.createElement("span");
+    name.className = "avail-name";
+    name.textContent = row.name;
+    el.appendChild(name);
+
+    el.appendChild(
+      buildPriceEditor(row.name, row.price, (price) => saveCustomPrice(row, price), null)
+    );
+
+    const actions = document.createElement("div");
+    actions.className = "avail-actions";
+
+    const soldOutBtn = document.createElement("button");
+    soldOutBtn.type = "button";
+    soldOutBtn.className = "avail-toggle";
+    soldOutBtn.textContent = isOut ? "Mark available" : "Mark sold out";
+    soldOutBtn.onclick = () => toggleCustomSoldOut(row, isOut);
+    actions.appendChild(soldOutBtn);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "avail-toggle avail-archive-btn";
+    removeBtn.textContent = "Remove";
+    removeBtn.onclick = () => removeCustomItem(row);
+    actions.appendChild(removeBtn);
+
+    el.appendChild(actions);
+    return el;
+  }
+
   function renderMenuAvailability(filterText) {
     const wrap = el("menuAvailability");
     const q = (filterText || "").trim().toLowerCase();
@@ -464,99 +656,41 @@
       return;
     }
 
-    MENU.forEach((group) => {
-      const items = q
-        ? group.items.filter((item) => item.name.toLowerCase().includes(q))
-        : group.items;
-      if (!items.length) return;
+    function renderCategory(categoryName, nativeItems, customRows) {
+      const items = q ? nativeItems.filter((i) => i.name.toLowerCase().includes(q)) : nativeItems;
+      const custom = q ? customRows.filter((r) => r.name.toLowerCase().includes(q)) : customRows;
+      if (!items.length && !custom.length) return;
 
       const catHead = document.createElement("h3");
       catHead.className = "avail-cat";
-      catHead.textContent = group.category;
+      catHead.textContent = categoryName;
       wrap.appendChild(catHead);
 
-      items.forEach((item) => {
-        /* soldOut set directly in menu.js can't be undone from here —
-           that's a code-level decision, this toggle is only for the
-           database-level override on top of it. */
-        const hardCoded = !!item.soldOut;
-        const isOut = hardCoded || soldOutSet.has(item.name);
-        const isArchived = archivedSet.has(item.name);
+      items.forEach((item) => wrap.appendChild(buildNativeRow(item)));
+      custom.forEach((row) => wrap.appendChild(buildCustomRow(row)));
+    }
 
-        const row = document.createElement("div");
-        row.className =
-          "avail-row" + (isOut ? " is-out" : "") + (isArchived ? " is-archived" : "");
+    const seenCategories = new Set();
 
-        const name = document.createElement("span");
-        name.className = "avail-name";
-        name.textContent = item.name + (isArchived ? " (archived)" : "");
-        row.appendChild(name);
+    MENU.forEach((group) => {
+      seenCategories.add(group.category.trim().toLowerCase());
+      const customForGroup = customItems.filter((row) => sameCategory(row.category, group.category));
+      renderCategory(group.category, group.items, customForGroup);
+    });
 
-        /* Price editor — only for plain-priced items (dishes with size
-           options carry a price per size, which isn't editable here). */
-        if (!(item.sizes && item.sizes.length)) {
-          const overridden = priceOverrides.has(item.name);
-          const current = overridden ? priceOverrides.get(item.name) : item.price;
-
-          const priceWrap = document.createElement("div");
-          priceWrap.className = "avail-price";
-
-          const input = document.createElement("input");
-          input.type = "number";
-          input.min = "1";
-          input.className = "field-input avail-price-input";
-          input.value = current;
-          input.setAttribute("aria-label", "Price for " + item.name);
-          priceWrap.appendChild(input);
-
-          const saveBtn = document.createElement("button");
-          saveBtn.type = "button";
-          saveBtn.className = "avail-toggle";
-          saveBtn.textContent = "Save price";
-          saveBtn.onclick = () => savePrice(item.name, item.price, Number(input.value));
-          priceWrap.appendChild(saveBtn);
-
-          if (overridden) {
-            const resetBtn = document.createElement("button");
-            resetBtn.type = "button";
-            resetBtn.className = "avail-toggle";
-            resetBtn.textContent = "Reset to " + money(item.price);
-            resetBtn.onclick = () => resetPrice(item.name);
-            priceWrap.appendChild(resetBtn);
-          }
-
-          row.appendChild(priceWrap);
-        }
-
-        const actions = document.createElement("div");
-        actions.className = "avail-actions";
-
-        /* Sold-out doesn't make sense to offer once something's already
-           archived — it's already fully hidden either way. */
-        if (!isArchived) {
-          const soldOutBtn = document.createElement("button");
-          soldOutBtn.type = "button";
-          soldOutBtn.className = "avail-toggle";
-          if (hardCoded) {
-            soldOutBtn.textContent = "Set sold out in menu.js";
-            soldOutBtn.disabled = true;
-          } else {
-            soldOutBtn.textContent = isOut ? "Mark available" : "Mark sold out";
-            soldOutBtn.onclick = () => toggleSoldOut(item.name, isOut);
-          }
-          actions.appendChild(soldOutBtn);
-        }
-
-        const archiveBtn = document.createElement("button");
-        archiveBtn.type = "button";
-        archiveBtn.className = "avail-toggle avail-archive-btn";
-        archiveBtn.textContent = isArchived ? "Unarchive" : "Archive";
-        archiveBtn.onclick = () => toggleArchive(item.name, isArchived);
-        actions.appendChild(archiveBtn);
-
-        row.appendChild(actions);
-        wrap.appendChild(row);
-      });
+    /* Categories that only exist because they were created from the
+       dashboard (like a brand-new "Breakfast" section) — no menu.js
+       items of their own, just whatever's been added this way. */
+    const extraCategories = [];
+    customItems.forEach((row) => {
+      const key = row.category.trim().toLowerCase();
+      if (seenCategories.has(key)) return;
+      seenCategories.add(key);
+      extraCategories.push(row.category);
+    });
+    extraCategories.forEach((categoryName) => {
+      const customForGroup = customItems.filter((row) => sameCategory(row.category, categoryName));
+      renderCategory(categoryName, [], customForGroup);
     });
   }
 
@@ -577,13 +711,40 @@
     loadSoldOutStatus();
   }
 
-  async function resetPrice(name) {
-    const { error } = await db.from("price_overrides").delete().eq("item_name", name);
-    if (error) {
-      window.alert("Couldn't reset the price: " + error.message);
+  async function saveCustomPrice(row, price) {
+    if (!price || price <= 0) {
+      window.alert("Enter a price greater than 0.");
       return;
     }
-    loadSoldOutStatus();
+    const { error } = await db.from("custom_menu_items").update({ price }).eq("id", row.id);
+    if (error) {
+      window.alert("Couldn't update the price: " + error.message);
+      return;
+    }
+    loadCustomItems();
+  }
+
+  async function toggleCustomSoldOut(row, currentlyOut) {
+    const { error } = await db
+      .from("custom_menu_items")
+      .update({ sold_out: !currentlyOut })
+      .eq("id", row.id);
+    if (error) {
+      window.alert("Couldn't update it: " + error.message);
+      return;
+    }
+    loadCustomItems();
+  }
+
+  async function removeCustomItem(row) {
+    if (!window.confirm(`Remove "${row.name}" from the menu?`)) return;
+    const { error } = await db.from("custom_menu_items").delete().eq("id", row.id);
+    if (error) {
+      window.alert("Couldn't remove it: " + error.message);
+      return;
+    }
+    populateCategoryDropdown();
+    loadCustomItems();
   }
 
   async function toggleSoldOut(name, currentlyOut) {
@@ -766,72 +927,22 @@
     loadCustomItems();
   });
 
+  /* Fetches items added from the form above and folds them into Menu
+     availability (see buildCustomRow/renderMenuAvailability) rather
+     than keeping a separate list — so they get the same sold-out/price
+     controls as everything else, under their actual category. */
   async function loadCustomItems() {
     const { data, error } = await db
       .from("custom_menu_items")
       .select("*")
       .order("created_at", { ascending: false });
 
-    const wrap = el("customItemsList");
     if (error) {
-      wrap.innerHTML = '<p class="dash-empty">Couldn\'t load added items.</p>';
+      console.error("Couldn't load added items:", error);
       return;
     }
-    if (!data || !data.length) {
-      wrap.innerHTML = '<p class="dash-empty">No items added this way yet.</p>';
-      return;
-    }
-
-    wrap.innerHTML = "";
-    data.forEach((row) => {
-      const item = document.createElement("div");
-      item.className = "custom-item-row";
-
-      const info = document.createElement("div");
-      info.className = "custom-item-info";
-      info.innerHTML =
-        `<strong>${escapeHtml(row.name)}</strong>` +
-        `<span>${escapeHtml(row.category)} · ${money(row.price)}</span>`;
-      item.appendChild(info);
-
-      const edit = document.createElement("button");
-      edit.type = "button";
-      edit.className = "avail-toggle";
-      edit.textContent = "Edit price";
-      edit.onclick = async () => {
-        const input = window.prompt(`New price for "${row.name}" (₦):`, row.price);
-        if (input === null) return;
-        const price = Number(input);
-        if (!price || price <= 0) {
-          window.alert("Enter a price greater than 0.");
-          return;
-        }
-        const { error: upError } = await db.from("custom_menu_items").update({ price }).eq("id", row.id);
-        if (upError) {
-          window.alert("Couldn't update the price: " + upError.message);
-          return;
-        }
-        loadCustomItems();
-      };
-      item.appendChild(edit);
-
-      const del = document.createElement("button");
-      del.type = "button";
-      del.className = "avail-toggle";
-      del.textContent = "Remove";
-      del.onclick = async () => {
-        if (!window.confirm(`Remove "${row.name}" from the menu?`)) return;
-        const { error: delError } = await db.from("custom_menu_items").delete().eq("id", row.id);
-        if (delError) {
-          window.alert("Couldn't remove it: " + delError.message);
-          return;
-        }
-        loadCustomItems();
-      };
-      item.appendChild(del);
-
-      wrap.appendChild(item);
-    });
+    customItems = data || [];
+    renderMenuAvailability(el("availSearch").value);
   }
 
   checkSession();

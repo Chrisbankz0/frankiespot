@@ -47,7 +47,7 @@
   </header>
 
   <label class="busy-toggle-row">
-    <span>Kitchen is busy right now (shows a notice to customers)</span>
+    <span>We're closed right now (customers can browse, but every dish shows unavailable and ordering is switched off)</span>
     <input type="checkbox" id="busyToggle" />
   </label>
 
@@ -55,6 +55,11 @@
     <span>Bestsellers uses real sales data (off = your manual picks in menu.js)</span>
     <input type="checkbox" id="bestsellersAutoToggle" />
   </label>
+
+  <div class="busy-toggle-row">
+    <span>Push a notification to everyone who opted in for "we're open" alerts</span>
+    <button type="button" id="notifyOpenBtn" class="refresh-btn">Notify customers we're open</button>
+  </div>
 
   <section class="repay-card" id="repayCard">
     <div class="repay-head">
@@ -174,7 +179,10 @@
       <p class="additem-error" id="additemError" style="display:none;"></p>
     </form>
 
-    <div id="customItemsList" class="custom-items-list"></div>
+    <p class="dash-section-note" style="margin-top:14px;">
+      Items you add here show up above, in Menu availability, under their category —
+      that's where you mark them sold out, change their price, or remove them.
+    </p>
   </section>
 
 </div>
