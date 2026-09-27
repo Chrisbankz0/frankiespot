@@ -61,6 +61,22 @@
     <button type="button" id="staffNotifyOptInBtn" class="refresh-btn" style="display:none;">🔔 Notify me</button>
   </div>
 
+  <div class="promo-editor">
+    <div class="promo-editor-head">
+      <span>Promo banner shown at the top of the site</span>
+      <label class="promo-editor-toggle">
+        <input type="checkbox" id="promoEnabledToggle" /> Show it
+      </label>
+    </div>
+    <div class="promo-editor-row">
+      <input type="text" id="promoMessageInput" class="field-input" placeholder="e.g. 20% off today only!" maxlength="120" />
+      <button type="button" id="promoSaveBtn" class="refresh-btn">Save</button>
+    </div>
+    <label class="field-label" for="promoExpiryInput">Turn off automatically at <span class="field-optional">(optional)</span></label>
+    <input type="datetime-local" id="promoExpiryInput" class="field-input" />
+    <p class="additem-hint" id="promoExpiredNote" style="display:none;"></p>
+  </div>
+
   <section class="repay-card" id="repayCard">
     <div class="repay-head">
       <span class="repay-label">Site development repayment (3% of every order)</span>
@@ -112,6 +128,17 @@
     <div class="stat-card">
       <div class="stat-label">Avg. order</div>
       <div class="stat-value" id="statAvg">₦0</div>
+    </div>
+  </div>
+
+  <div class="stat-row stat-row-2">
+    <div class="stat-card">
+      <div class="stat-label">Menu views</div>
+      <div class="stat-value" id="statViews">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Conversion</div>
+      <div class="stat-value" id="statConversion">—</div>
     </div>
   </div>
 
@@ -187,6 +214,50 @@
       Items you add here show up above, in Menu availability, under their category —
       that's where you mark them sold out, change their price, edit them, or remove them.
     </p>
+  </section>
+
+  <section class="dash-section">
+    <div class="dash-section-head">
+      <h2>Business settings</h2>
+      <span class="dash-section-note">Goes live on the site instantly — no code or redeploy needed.</span>
+    </div>
+
+    <form id="businessSettingsForm" class="additem-form">
+      <label class="field-label" for="bsWhatsapp">WhatsApp number that receives orders</label>
+      <input type="text" id="bsWhatsapp" class="field-input" placeholder="e.g. 2348012345678" required />
+
+      <label class="field-label" for="bsWhatsappBackup">Backup WhatsApp number <span class="field-optional">(optional)</span></label>
+      <input type="text" id="bsWhatsappBackup" class="field-input" placeholder="Only offered if the main number doesn't work" />
+
+      <label class="field-label" for="bsDeliveryFee">Delivery fee (₦) <span class="field-optional">(leave blank to agree it in chat instead)</span></label>
+      <input type="number" id="bsDeliveryFee" class="field-input" min="0" />
+
+      <label class="field-label" for="bsMinimumOrder">Minimum order (₦) <span class="field-optional">(0 turns it off)</span></label>
+      <input type="number" id="bsMinimumOrder" class="field-input" min="0" />
+
+      <label class="field-label" for="bsHoursText">Opening hours, shown on the site</label>
+      <input type="text" id="bsHoursText" class="field-input" placeholder="e.g. Tuesday to Sunday, 9am to 3pm" />
+
+      <label class="field-label">Days you're open <span class="field-optional">(for auto-closing outside these hours — leave all unchecked to turn auto-close off)</span></label>
+      <div class="bs-days" id="bsDays">
+        <label><input type="checkbox" value="0" /> Sun</label>
+        <label><input type="checkbox" value="1" /> Mon</label>
+        <label><input type="checkbox" value="2" /> Tue</label>
+        <label><input type="checkbox" value="3" /> Wed</label>
+        <label><input type="checkbox" value="4" /> Thu</label>
+        <label><input type="checkbox" value="5" /> Fri</label>
+        <label><input type="checkbox" value="6" /> Sat</label>
+      </div>
+
+      <label class="field-label" for="bsOpenTime">Opening time</label>
+      <input type="time" id="bsOpenTime" class="field-input" />
+
+      <label class="field-label" for="bsCloseTime">Closing time</label>
+      <input type="time" id="bsCloseTime" class="field-input" />
+
+      <button type="submit" class="login-btn">Save business settings</button>
+      <p class="additem-error" id="businessSettingsError" style="display:none;"></p>
+    </form>
   </section>
 
 </div>

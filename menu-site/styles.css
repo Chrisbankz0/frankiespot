@@ -158,6 +158,32 @@ img{ display:block; }
   border-color:rgba(255,255,255,.4);
 }
 
+/* Promo banner — a dashboard-controlled announcement strip ("20% off
+   today", "Try our new Shawarma"). Sits below the masthead, above the
+   sticky nav, so it scrolls away with the page rather than staying
+   pinned like the nav does. */
+.promo-banner{
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  gap:10px;
+  padding:11px 40px 11px 18px;
+  background:var(--gold);
+  color:var(--ink);
+  font-size:13.5px; font-weight:700;
+  text-align:center;
+}
+.promo-text{ max-width:var(--shell); }
+.promo-close{
+  position:absolute; right:8px; top:50%;
+  transform:translateY(-50%);
+  width:26px; height:26px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--ink);
+  opacity:.65;
+  border-radius:50%;
+}
+.promo-close:hover{ opacity:1; background:rgba(23,18,12,.08); }
+
 
 /* ---------------------------------------------------------------
    Sticky category nav
@@ -1045,6 +1071,23 @@ img{ display:block; }
   font-size:13px; font-weight:600;
 }
 .busy-toggle-row input{ flex:0 0 auto; width:20px; height:20px; accent-color:var(--pepper); }
+
+.promo-editor{
+  margin-top:14px;
+  padding:12px 14px;
+  background:var(--card);
+  border:1px solid var(--hair);
+  border-radius:var(--r-md);
+}
+.promo-editor-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  font-size:13px; font-weight:600;
+  margin-bottom:10px;
+}
+.promo-editor-toggle{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+.promo-editor-toggle input{ width:18px; height:18px; accent-color:var(--pepper); }
+.promo-editor-row{ display:flex; gap:8px; }
+.promo-editor-row .field-input{ flex:1; }
 .refresh-btn,
 .logout-btn{
   flex:0 0 auto;
@@ -1195,6 +1238,18 @@ img{ display:block; }
   font-size:13.5px; font-weight:600;
 }
 .additem-checkbox input{ width:18px; height:18px; accent-color:var(--pepper); }
+.bs-days{
+  display:flex; flex-wrap:wrap; gap:8px;
+  margin-top:8px;
+}
+.bs-days label{
+  display:flex; align-items:center; gap:5px;
+  padding:7px 12px;
+  border:1.5px solid var(--hair);
+  border-radius:999px;
+  font-size:12.5px; font-weight:600;
+}
+.bs-days input{ width:15px; height:15px; accent-color:var(--pepper); }
 .additem-form .login-btn{ margin-top:18px; }
 .additem-error{
   margin:12px 0 0;
@@ -1282,6 +1337,7 @@ img{ display:block; }
   gap:10px;
   margin-bottom:28px;
 }
+.stat-row-2{ grid-template-columns:repeat(2, 1fr); margin-top:-18px; }
 .stat-card{
   background:var(--card);
   border:1px solid var(--hair);

@@ -234,23 +234,34 @@
 
   el("brandTagline").textContent = BUSINESS.tagline;
 
-  const facts = [];
-  if (BUSINESS.areas) facts.push(`Delivering to <strong>${esc(BUSINESS.areas)}</strong>`);
-  if (BUSINESS.hours) facts.push(`Open <strong>${esc(BUSINESS.hours)}</strong>`);
-  if (BUSINESS.orderNotice) facts.push(esc(BUSINESS.orderNotice));
-  el("brandFacts").innerHTML = facts.map((f) => `<div>${f}</div>`).join("");
+  /* Both wrapped in functions (rather than run once, inline) since a
+     dashboard-saved override for hours or minimumOrder — see
+     business_settings further down — can change BUSINESS after this
+     first render already happened, and needs to redraw these two spots
+     to actually show it. */
+  function renderBrandFacts() {
+    const facts = [];
+    if (BUSINESS.areas) facts.push(`Delivering to <strong>${esc(BUSINESS.areas)}</strong>`);
+    if (BUSINESS.hours) facts.push(`Open <strong>${esc(BUSINESS.hours)}</strong>`);
+    if (BUSINESS.orderNotice) facts.push(esc(BUSINESS.orderNotice));
+    el("brandFacts").innerHTML = facts.map((f) => `<div>${f}</div>`).join("");
+  }
+  renderBrandFacts();
 
-  const foot = [
-    `<p>Add what you want, then send the order to us on WhatsApp. We'll confirm your delivery fee and total in the chat, and share account details for payment.</p>`,
-  ];
-  if (BUSINESS.minimumOrder > 0) {
-    foot.push(`<p>Minimum order <strong>${money(BUSINESS.minimumOrder)}</strong>, before delivery.</p>`);
+  function renderPageFoot() {
+    const foot = [
+      `<p>Add what you want, then send the order to us on WhatsApp. We'll confirm your delivery fee and total in the chat, and share account details for payment.</p>`,
+    ];
+    if (BUSINESS.minimumOrder > 0) {
+      foot.push(`<p>Minimum order <strong>${money(BUSINESS.minimumOrder)}</strong>, before delivery.</p>`);
+    }
+    if (BUSINESS.instagram) {
+      foot.push(`<p>Find us on Instagram at <strong>${esc(BUSINESS.instagram)}</strong></p>`);
+    }
+    foot.push(`<p>Prices may change. What you see here is what we charge today.</p>`);
+    el("pageFoot").innerHTML = foot.join("");
   }
-  if (BUSINESS.instagram) {
-    foot.push(`<p>Find us on Instagram at <strong>${esc(BUSINESS.instagram)}</strong></p>`);
-  }
-  foot.push(`<p>Prices may change. What you see here is what we charge today.</p>`);
-  el("pageFoot").innerHTML = foot.join("");
+  renderPageFoot();
 
   /* ------------------------------------------------------------------
      Build the menu
@@ -1229,7 +1240,7 @@
   if (dbClient) {
     dbClient
       .from("site_status")
-      .select("busy")
+      .select("busy, promo_enabled, promo_message, promo_expires_at")
       .eq("id", 1)
       .then(({ data, error }) => {
         if (error || !data || !data[0]) return;
@@ -1238,7 +1249,30 @@
             `<div class="busy-banner is-closed">We're closed right now — check back soon!</div>`;
           closeSiteForOrders();
         }
+        const expired =
+          data[0].promo_expires_at && new Date(data[0].promo_expires_at) <= new Date();
+        if (data[0].promo_enabled && data[0].promo_message && !expired) {
+          showPromoBanner(data[0].promo_message);
+        }
       });
+  }
+
+  /* Promo banner — a short announcement staff can turn on from the
+     dashboard ("20% off today", "Try our new Shawarma"), no code or
+     redeploy needed. Dismissing it is remembered per-message rather
+     than forever: change the message on the dashboard and it shows
+     again for everyone, even someone who dismissed the last one. */
+  function showPromoBanner(message) {
+    if (localStorage.getItem("fp_dismissed_promo") === message) return;
+
+    const banner = el("promoBanner");
+    el("promoText").textContent = message;
+    banner.style.display = "";
+
+    el("promoCloseBtn").onclick = () => {
+      localStorage.setItem("fp_dismissed_promo", message);
+      banner.style.display = "none";
+    };
   }
 
   /* Locks the whole site down to browsing-only: marks every dish
@@ -1353,6 +1387,17 @@
      the site works exactly as it always has, just not installable. */
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
+  /* One row per page load — see page_views.sql. Just a timestamp, no
+     visitor identifier of any kind, purely so the dashboard can show
+     views alongside orders for a rough conversion rate. Fire-and-forget:
+     never something a customer needs to wait on or even notice. */
+  if (dbClient) {
+    dbClient.from("page_views").insert({}).then(
+      () => {},
+      () => {}
+    );
   }
 
   /* ------------------------------------------------------------------
@@ -1584,11 +1629,16 @@
   syncCustomOrderUI();
   refresh();
 
-  /* Auto-closed based on BUSINESS.openHours (menu.js) — no dashboard
-     action needed day to day. Purely local, so it applies instantly on
-     load, before any network request. The dashboard's manual "closed"
-     toggle (checked further down, once the site_status fetch resolves)
-     still works as an override on top of this — e.g. to close early. */
+  /* Auto-closed based on BUSINESS.openHours — no dashboard action
+     needed day to day. Checked once immediately with whatever
+     BUSINESS.openHours already is (menu.js's hardcoded default), and
+     checked again after the business_settings fetch further down, in
+     case a dashboard-saved schedule changes the answer. Safe to call
+     twice — closeSiteForOrders() is idempotent, and this never reopens
+     a site that's already been closed, only closes one that wasn't.
+     The dashboard's manual "closed" toggle (checked separately, once
+     the site_status fetch resolves) still works as an override on top
+     of this — e.g. to close early. */
   function isWithinOpenHours(now) {
     const oh = BUSINESS.openHours;
     if (!oh) return true; // not configured — auto-close is off
@@ -1601,10 +1651,43 @@
     return nowMinutes >= toMinutes(oh.open) && nowMinutes < toMinutes(oh.close);
   }
 
-  if (!isWithinOpenHours(new Date())) {
+  function applyOpenHoursCheck() {
+    if (siteClosed || isWithinOpenHours(new Date())) return;
     el("busyBanner").innerHTML =
       `<div class="busy-banner is-closed">We're closed right now — open ${esc(BUSINESS.hours || "again soon")}.</div>`;
     closeSiteForOrders();
+  }
+
+  applyOpenHoursCheck();
+
+  /* Business settings saved from the dashboard — WhatsApp number(s),
+     delivery fee, minimum order, and opening hours — override whatever
+     menu.js says, field by field, once this loads. No row yet (nobody's
+     ever saved from the dashboard) means menu.js keeps governing all of
+     it, exactly as before this existed. */
+  if (dbClient) {
+    dbClient
+      .from("business_settings")
+      .select("*")
+      .eq("id", 1)
+      .then(({ data, error }) => {
+        if (error || !data || !data[0]) return;
+        const row = data[0];
+
+        if (row.whatsapp) BUSINESS.whatsapp = row.whatsapp;
+        BUSINESS.whatsappBackup = row.whatsapp_backup || "";
+        BUSINESS.deliveryFee = row.delivery_fee;
+        BUSINESS.minimumOrder = row.minimum_order || 0;
+        if (row.hours_text) BUSINESS.hours = row.hours_text;
+        BUSINESS.openHours =
+          row.open_days && row.open_days.length && row.open_time && row.close_time
+            ? { days: row.open_days, open: row.open_time, close: row.close_time }
+            : null;
+
+        renderBrandFacts();
+        renderPageFoot();
+        applyOpenHoursCheck();
+      });
   }
 
   /* Quick reorder — remembered on this device only, no account needed.

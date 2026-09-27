@@ -40,6 +40,7 @@
 
   let currentRange = "today";
   let allOrders = []; // orders for the currently selected range
+  let viewCount = null; // page views for the same range, null if it couldn't be loaded
 
   /* ------------------------------------------------------------------
      Auth
@@ -71,12 +72,45 @@
     populateCategoryDropdown();
     loadCustomItems();
     setUpStaffPushOptIn();
+    loadBusinessSettings();
+  }
+
+  /* datetime-local inputs both read and write local time with no
+     timezone suffix — matching how BUSINESS.openHours already works
+     elsewhere in this project, no timezone conversion anywhere. */
+  function toDatetimeLocalValue(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   async function loadBusyStatus() {
-    const { data, error } = await db.from("site_status").select("busy").eq("id", 1);
+    const { data, error } = await db
+      .from("site_status")
+      .select("busy, promo_enabled, promo_message, promo_expires_at")
+      .eq("id", 1);
     if (error || !data || !data[0]) return;
-    el("busyToggle").checked = !!data[0].busy;
+    const row = data[0];
+
+    el("busyToggle").checked = !!row.busy;
+    el("promoMessageInput").value = row.promo_message || "";
+    el("promoExpiryInput").value = toDatetimeLocalValue(row.promo_expires_at);
+
+    /* If the expiry time has already passed, the banner is already
+       hidden from customers (see app.js) even though the checkbox here
+       would otherwise still say "on" — so flip it off for real, rather
+       than leaving the dashboard showing something that isn't true. */
+    const expired = row.promo_expires_at && new Date(row.promo_expires_at) <= new Date();
+    if (expired && row.promo_enabled) {
+      await db.from("site_status").update({ promo_enabled: false }).eq("id", 1);
+      el("promoExpiredNote").textContent = "This banner's end time passed, so it's been turned off.";
+      el("promoExpiredNote").style.display = "";
+      el("promoEnabledToggle").checked = false;
+    } else {
+      el("promoExpiredNote").style.display = "none";
+      el("promoEnabledToggle").checked = !!row.promo_enabled;
+    }
   }
 
   el("busyToggle").addEventListener("change", async (e) => {
@@ -86,6 +120,47 @@
       window.alert("Couldn't update: " + error.message);
       e.target.checked = !busy; // revert the visual toggle
     }
+  });
+
+  /* Promo banner — turning the checkbox on/off alone (with no text
+     change) saves immediately; editing the message requires hitting
+     Save, so a half-typed sentence never accidentally goes live
+     character by character. */
+  el("promoEnabledToggle").addEventListener("change", async (e) => {
+    const promo_enabled = e.target.checked;
+    const { error } = await db.from("site_status").update({ promo_enabled }).eq("id", 1);
+    if (error) {
+      window.alert("Couldn't update: " + error.message);
+      e.target.checked = !promo_enabled;
+    }
+  });
+
+  el("promoSaveBtn").addEventListener("click", async () => {
+    const promo_message = el("promoMessageInput").value.trim();
+    const expiryValue = el("promoExpiryInput").value; // "" or "YYYY-MM-DDTHH:mm", local time
+    const expiryDate = expiryValue ? new Date(expiryValue) : null;
+
+    if (expiryDate && expiryDate <= new Date()) {
+      window.alert("That end time is already in the past — pick a future time, or clear the field.");
+      return;
+    }
+
+    const btn = el("promoSaveBtn");
+    btn.disabled = true;
+    const { error } = await db
+      .from("site_status")
+      .update({
+        promo_message,
+        promo_expires_at: expiryDate ? expiryDate.toISOString() : null,
+      })
+      .eq("id", 1);
+    btn.disabled = false;
+    if (error) {
+      window.alert("Couldn't save it: " + error.message);
+      return;
+    }
+    el("promoExpiredNote").style.display = "none";
+    window.alert("Banner text saved.");
   });
 
   el("notifyOpenBtn").addEventListener("click", async () => {
@@ -390,19 +465,27 @@
 
   async function loadOrders() {
     const start = rangeStart(currentRange);
-    const { data, error } = await db
-      .from("orders")
-      .select("*")
-      .gte("created_at", start.toISOString())
-      .order("created_at", { ascending: false });
+    const [ordersRes, viewsRes] = await Promise.all([
+      db
+        .from("orders")
+        .select("*")
+        .gte("created_at", start.toISOString())
+        .order("created_at", { ascending: false }),
+      db
+        .from("page_views")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", start.toISOString()),
+    ]);
 
-    if (error) {
+    if (ordersRes.error) {
       el("ordersList").innerHTML =
-        '<p class="dash-empty">Couldn\'t load orders: ' + error.message + "</p>";
+        '<p class="dash-empty">Couldn\'t load orders: ' + ordersRes.error.message + "</p>";
       return;
     }
+    if (viewsRes.error) console.error("Couldn't load page views:", viewsRes.error);
 
-    allOrders = data || [];
+    allOrders = ordersRes.data || [];
+    viewCount = viewsRes.error ? null : viewsRes.count || 0;
     renderStats();
     renderBestSellers();
     renderOrdersList();
@@ -417,6 +500,20 @@
     el("statSales").textContent = money(sales);
     el("statOrders").textContent = count;
     el("statAvg").textContent = money(avg);
+
+    /* Conversion is deliberately rough — "views" here just means page
+       loads, not unique visitors (there's no visitor ID at all, on
+       purpose — see page_views.sql), so someone refreshing the page a
+       few times while deciding counts as several views. Directional,
+       not exact. */
+    if (viewCount == null) {
+      el("statViews").textContent = "—";
+      el("statConversion").textContent = "—";
+    } else {
+      el("statViews").textContent = viewCount;
+      el("statConversion").textContent =
+        viewCount > 0 ? Math.round((count / viewCount) * 100) + "%" : "—";
+    }
   }
 
   function renderBestSellers() {
@@ -1054,21 +1151,42 @@
 
   el("cancelEditBtn").addEventListener("click", stopEditingCustomItem);
 
+  /* Lists every menu.js category PLUS any category that only exists
+     because an item was added under it from this form (like a
+     dashboard-created "Breakfast") — otherwise there'd be no way to add
+     a second item to that category without retyping its exact name via
+     "New category…" and risking a mismatched spelling that creates a
+     second, separate section instead of joining the first one.
+     Preserves whatever's currently selected, if it's still a valid
+     option after rebuilding — this can get called while staff are
+     mid-way through filling out the form (see loadCustomItems). */
   function populateCategoryDropdown() {
     const sel = el("itemCategory");
+    const currentValue = sel.value;
     sel.innerHTML = "";
-    if (typeof MENU !== "undefined") {
-      MENU.forEach((g) => {
-        const opt = document.createElement("option");
-        opt.value = g.category;
-        opt.textContent = g.category;
-        sel.appendChild(opt);
-      });
-    }
+
+    const seen = new Set();
+    const addOption = (name) => {
+      const key = name.trim().toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    };
+
+    if (typeof MENU !== "undefined") MENU.forEach((g) => addOption(g.category));
+    customItems.forEach((row) => addOption(row.category));
+
     const otherOpt = document.createElement("option");
     otherOpt.value = "__new__";
     otherOpt.textContent = "New category…";
     sel.appendChild(otherOpt);
+
+    if ([...sel.options].some((o) => o.value === currentValue)) {
+      sel.value = currentValue;
+    }
   }
 
   el("itemCategory").addEventListener("change", () => {
@@ -1236,7 +1354,102 @@
     }
     customItems = data || [];
     renderMenuAvailability(el("availSearch").value);
+    populateCategoryDropdown();
   }
+
+  /* ------------------------------------------------------------------
+     Business settings — WhatsApp number(s), delivery fee, minimum
+     order, and opening hours, editable here instead of in menu.js. No
+     row in the database yet means nobody's ever saved from here, so
+     the form pre-fills from menu.js's own BUSINESS block as a sensible
+     starting point. Once saved, the database row governs all of these
+     fields together on the live site (see app.js) — see
+     business_settings.sql for why they're saved as one unit rather
+     than field-by-field.
+     ------------------------------------------------------------------ */
+
+  async function loadBusinessSettings() {
+    const { data, error } = await db.from("business_settings").select("*").eq("id", 1);
+    if (error) {
+      console.error("Couldn't load business settings:", error);
+      return;
+    }
+    const row = (data && data[0]) || null;
+    const fallback = typeof BUSINESS !== "undefined" ? BUSINESS : {};
+    const fallbackHours = fallback.openHours || {};
+
+    el("bsWhatsapp").value = row ? row.whatsapp : fallback.whatsapp || "";
+    el("bsWhatsappBackup").value = row ? row.whatsapp_backup || "" : fallback.whatsappBackup || "";
+    el("bsDeliveryFee").value = row
+      ? row.delivery_fee ?? ""
+      : fallback.deliveryFee ?? "";
+    el("bsMinimumOrder").value = row ? row.minimum_order : fallback.minimumOrder || 0;
+    el("bsHoursText").value = row ? row.hours_text || "" : fallback.hours || "";
+
+    const openDays = row ? row.open_days || [] : fallbackHours.days || [];
+    document.querySelectorAll('#bsDays input[type="checkbox"]').forEach((cb) => {
+      cb.checked = openDays.includes(Number(cb.value));
+    });
+
+    el("bsOpenTime").value = row ? row.open_time || "" : fallbackHours.open || "";
+    el("bsCloseTime").value = row ? row.close_time || "" : fallbackHours.close || "";
+  }
+
+  el("businessSettingsForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = el("businessSettingsError");
+    errEl.style.display = "none";
+
+    const whatsapp = el("bsWhatsapp").value.replace(/[^0-9]/g, "");
+    const whatsappBackup = el("bsWhatsappBackup").value.replace(/[^0-9]/g, "");
+    const deliveryFeeRaw = el("bsDeliveryFee").value.trim();
+    const minimumOrder = Number(el("bsMinimumOrder").value) || 0;
+    const hoursText = el("bsHoursText").value.trim();
+    const openDays = [...document.querySelectorAll('#bsDays input[type="checkbox"]:checked')].map(
+      (cb) => Number(cb.value)
+    );
+    const openTime = el("bsOpenTime").value;
+    const closeTime = el("bsCloseTime").value;
+
+    if (!whatsapp) {
+      errEl.textContent = "WhatsApp number is required.";
+      errEl.style.display = "";
+      return;
+    }
+    if (openDays.length && (!openTime || !closeTime)) {
+      errEl.textContent =
+        "Pick both an opening and closing time, or clear all the day checkboxes to turn auto-close off.";
+      errEl.style.display = "";
+      return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving…";
+
+    const { error } = await db.from("business_settings").upsert({
+      id: 1,
+      whatsapp,
+      whatsapp_backup: whatsappBackup || null,
+      delivery_fee: deliveryFeeRaw === "" ? null : Number(deliveryFeeRaw),
+      minimum_order: minimumOrder,
+      hours_text: hoursText || null,
+      open_days: openDays.length ? openDays : null,
+      open_time: openDays.length ? openTime : null,
+      close_time: openDays.length ? closeTime : null,
+      updated_at: new Date().toISOString(),
+    });
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Save business settings";
+
+    if (error) {
+      errEl.textContent = "Couldn't save it: " + error.message;
+      errEl.style.display = "";
+      return;
+    }
+    window.alert("Business settings saved — live on the site now.");
+  });
 
   checkSession();
 })();
