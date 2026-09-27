@@ -1,12 +1,20 @@
 /* =====================================================================
-   SERVICE WORKER — only exists to receive push notifications while the
-   site isn't open in a tab, and to focus/open the site when one of
-   those notifications is tapped.
+   SERVICE WORKER — receives push notifications while the site isn't
+   open in a tab, focuses/opens the site when one is tapped, and (just
+   by existing and being registered) is what makes the site installable
+   as a home-screen app icon — see manifest.json.
 
-   Registered from app.js when a customer opts in via the "Notify me
-   when you're open" banner. Does nothing else — no offline caching, no
-   asset interception.
+   Registered from app.js on every visit, not just for people who opt
+   into push notifications, so "Add to Home Screen" works for everyone.
    ===================================================================== */
+
+/* No actual caching — every request just goes straight to the network,
+   exactly as it would with no service worker at all. This handler
+   exists only because some browsers' install criteria look for one;
+   it changes nothing about how the site loads or behaves. */
+self.addEventListener("fetch", (event) => {
+  event.respondWith(fetch(event.request));
+});
 
 self.addEventListener("push", (event) => {
   let data = {};

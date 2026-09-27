@@ -19,6 +19,17 @@
 
 <link rel="icon" href="images/logo.jpg">
 
+<!-- Makes the site installable as a home-screen app icon (Chrome/Android
+     picks this up automatically; the two apple-* tags below cover the
+     equivalent on iOS Safari, which ignores manifest.json). If you ever
+     rebrand, update the name/colors here AND in manifest.json — this
+     file has no build step to keep the two in sync automatically. -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="images/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Frankies Pot">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">

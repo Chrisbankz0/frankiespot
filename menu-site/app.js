@@ -132,6 +132,51 @@
   }
 
   /* ------------------------------------------------------------------
+     Cart persistence — an in-progress order used to vanish completely
+     if the page reloaded (an accidental pull-to-refresh, switching apps
+     on a phone and the tab getting reloaded in the background, etc.).
+     Saved on every cart change, restored once on load before the first
+     paint. This is deliberately separate from fp_last_order below,
+     which is a COMPLETED order kept around for the "reorder" banner —
+     this one is whatever's still sitting in the cart, unsent.
+     ------------------------------------------------------------------ */
+
+  const CART_STORAGE_KEY = "fp_active_cart";
+
+  function saveCartToStorage() {
+    try {
+      if (cart.size === 0 && !customNote) {
+        localStorage.removeItem(CART_STORAGE_KEY);
+        return;
+      }
+      localStorage.setItem(
+        CART_STORAGE_KEY,
+        JSON.stringify({
+          lines: [...cart.values()].map((l) => ({ key: l.key, name: l.name, unit: l.unit, qty: l.qty, item: l.item })),
+          customNote,
+        })
+      );
+    } catch {
+      // Private browsing, storage full, etc. — the cart just won't
+      // survive a reload this time; nothing else about the page breaks.
+    }
+  }
+
+  function restoreCartFromStorage() {
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "null");
+    } catch {
+      saved = null;
+    }
+    if (!saved) return;
+    (saved.lines || []).forEach((l) => {
+      if (l && l.key && l.qty > 0) cart.set(l.key, l);
+    });
+    if (saved.customNote) customNote = saved.customNote;
+  }
+
+  /* ------------------------------------------------------------------
      Reusable quantity stepper
      ------------------------------------------------------------------ */
 
@@ -602,6 +647,8 @@
       if (cart.size === 0 && !customNote) closeSheet();
       else renderSheet();
     }
+
+    saveCartToStorage();
   }
 
   function openSheet() {
@@ -1299,6 +1346,15 @@
       });
   }
 
+  /* Registered unconditionally, for everyone — not just people who opt
+     into push notifications below — since a registered service worker
+     is what makes "Add to Home Screen" available at all (see
+     manifest.json). Fire-and-forget: if it fails or isn't supported,
+     the site works exactly as it always has, just not installable. */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
   /* ------------------------------------------------------------------
      Push notification opt-in — "🔔 Notify me when you're open". Lets a
      customer who isn't currently on the site get a real push
@@ -1524,6 +1580,8 @@
     searchInput.focus();
   };
 
+  restoreCartFromStorage();
+  syncCustomOrderUI();
   refresh();
 
   /* Auto-closed based on BUSINESS.openHours (menu.js) — no dashboard

@@ -728,6 +728,13 @@
     soldOutBtn.onclick = () => toggleCustomSoldOut(row, isOut);
     actions.appendChild(soldOutBtn);
 
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "avail-toggle";
+    editBtn.textContent = "Edit";
+    editBtn.onclick = () => startEditingCustomItem(row);
+    actions.appendChild(editBtn);
+
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.className = "avail-toggle avail-archive-btn";
@@ -979,11 +986,73 @@
   }
 
   /* ------------------------------------------------------------------
-     Add a menu item — writes straight to custom_menu_items, which the
-     site merges into the live menu on its own (see app.js). Existing
-     menu.js items aren't editable from here, only new ones added this
-     way; removing one just deletes its row.
+     Add (or edit) a menu item — writes straight to custom_menu_items,
+     which the site merges into the live menu on its own (see app.js).
+     This same form doubles as the editor for anything already added
+     this way (see startEditingCustomItem, wired up from the "Edit"
+     button in buildCustomRow) — existing menu.js items still aren't
+     editable from here, only ones added through this form.
      ------------------------------------------------------------------ */
+
+  /* Set while editing an existing dashboard-added item (see
+     startEditingCustomItem) so the form's submit handler knows to
+     UPDATE that row instead of INSERTing a new one. null means the
+     form is in its normal "add a new item" mode. */
+  let editingItem = null;
+
+  function startEditingCustomItem(row) {
+    editingItem = row;
+
+    populateCategoryDropdown();
+    const categorySel = el("itemCategory");
+    const hasOption = [...categorySel.options].some((o) => o.value === row.category);
+    if (hasOption) {
+      categorySel.value = row.category;
+      el("itemNewCategory").style.display = "none";
+    } else {
+      // A category that only exists because items were added under it —
+      // not one of the dropdown's normal menu.js options.
+      categorySel.value = "__new__";
+      el("itemNewCategory").value = row.category;
+      el("itemNewCategory").style.display = "";
+    }
+
+    el("itemName").value = row.name;
+    el("itemPrice").value = row.price;
+    el("itemDescription").value = row.description || "";
+    el("itemNote").value = row.note || "";
+    el("itemImageUrl").value = "";
+    el("itemImageFile").value = "";
+    el("itemPopular").checked = !!row.popular;
+
+    const photoHint = el("currentPhotoHint");
+    if (row.image_url) {
+      photoHint.textContent = "Leave the photo fields blank to keep the current photo.";
+      photoHint.style.display = "";
+    } else {
+      photoHint.style.display = "none";
+    }
+
+    el("additemError").style.display = "none";
+    el("addItemHeading").textContent = "Edit menu item";
+    el("addItemSubmitBtn").textContent = "Save changes";
+    el("cancelEditBtn").style.display = "";
+    el("addItemSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function stopEditingCustomItem() {
+    editingItem = null;
+    el("addItemForm").reset();
+    el("itemNewCategory").style.display = "none";
+    el("currentPhotoHint").style.display = "none";
+    el("additemError").style.display = "none";
+    el("addItemHeading").textContent = "Add a menu item";
+    el("addItemSubmitBtn").textContent = "Add to menu";
+    el("cancelEditBtn").style.display = "none";
+    populateCategoryDropdown();
+  }
+
+  el("cancelEditBtn").addEventListener("click", stopEditingCustomItem);
 
   function populateCategoryDropdown() {
     const sel = el("itemCategory");
@@ -1103,11 +1172,15 @@
       return;
     }
 
-    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const isEditing = !!editingItem;
+    const submitBtn = el("addItemSubmitBtn");
     submitBtn.disabled = true;
-    submitBtn.textContent = imageFile ? "Uploading photo…" : "Adding…";
+    submitBtn.textContent = imageFile ? "Uploading photo…" : isEditing ? "Saving…" : "Adding…";
 
-    let imageUrl = imageUrlTyped;
+    /* Editing without picking a new photo or typing a new link keeps
+       whatever photo the item already had — blank fields don't mean
+       "remove the photo," they mean "no change." */
+    let imageUrl = imageUrlTyped || (isEditing ? editingItem.image_url : null);
     if (imageFile) {
       try {
         imageUrl = await uploadItemPhoto(imageFile);
@@ -1115,12 +1188,12 @@
         errEl.textContent = "Couldn't upload the photo: " + uploadError.message;
         errEl.style.display = "";
         submitBtn.disabled = false;
-        submitBtn.textContent = "Add to menu";
+        submitBtn.textContent = isEditing ? "Save changes" : "Add to menu";
         return;
       }
     }
 
-    const { error } = await db.from("custom_menu_items").insert({
+    const fields = {
       category,
       name,
       price,
@@ -1128,21 +1201,22 @@
       note: note || null,
       image_url: imageUrl || null,
       popular,
-      sold_out: false,
-    });
+    };
+
+    const { error } = isEditing
+      ? await db.from("custom_menu_items").update(fields).eq("id", editingItem.id)
+      : await db.from("custom_menu_items").insert({ ...fields, sold_out: false });
 
     submitBtn.disabled = false;
-    submitBtn.textContent = "Add to menu";
+    submitBtn.textContent = isEditing ? "Save changes" : "Add to menu";
 
     if (error) {
-      errEl.textContent = "Couldn't add it: " + error.message;
+      errEl.textContent = (isEditing ? "Couldn't save it: " : "Couldn't add it: ") + error.message;
       errEl.style.display = "";
       return;
     }
 
-    el("addItemForm").reset();
-    el("itemNewCategory").style.display = "none";
-    populateCategoryDropdown();
+    stopEditingCustomItem();
     loadCustomItems();
   });
 
